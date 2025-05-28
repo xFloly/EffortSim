@@ -1,0 +1,22 @@
+name: effortsim
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.10 
+  - pip=25.0.1
+  - numpy=1.26.4
+  - pandas=2.2.3
+  - matplotlib=3.10.3
+  - pytorch=2.4.1
+  - cudatoolkit=11.8
+  - tqdm=4.67.1
+  - omegaconf=2.3.0
+  - pip:
+      - pettingzoo==1.24.1
+      - supersuit==3.7.0
+      - pygame
+      - torchrl==0.5.0
+      - wandb==0.19.11
+      - rich

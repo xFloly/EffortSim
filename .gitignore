@@ -1,0 +1,65 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Environment folders
+env/
+venv/
+.venv/
+effortsim/
+
+# Conda environment files backup
+*.conda
+*.env
+
+# PyTorch checkpoints and model weights
+*.pt
+*.pth
+
+# Logging, wandb and analytics
+wandb/
+logs/
+*.log
+
+# Environment wrappers or internal logs
+*.mp4
+*.avi
+*.mov
+*.json
+*.csv
+
+# Temporary files
+*.swp
+*.tmp
+*.bak
+
+# VSCode / IDE settings
+.vscode/
+.idea/
+
+# Mac / Linux hidden files
+.DS_Store
+*.~lock.*
+
+# Python virtual environment manager
+pip-wheel-metadata/
+build/
+dist/
+
+# Pytest or test cache
+.pytest_cache/
+.cache/
+
+# Mypy / type checking
+.mypy_cache/
+
+# Weights & Biases artifact folders (safe to ignore unless used manually)
+wandb-artifacts/
+
+# Checkpoints or experiment outputs
+checkpoints/
+outputs/
