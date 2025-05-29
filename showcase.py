@@ -17,3 +17,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+#python showcase.py --config path_to_config

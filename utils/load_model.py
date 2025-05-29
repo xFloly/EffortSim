@@ -3,6 +3,7 @@ import torch
 import glob
 
 def load_checkpoints(agents, agent_ids, cfg):
+    ### Get latest checkpoint file for specific agent ###
     mode = cfg.checkpoint.mode
     path = cfg.checkpoint.path
 
@@ -16,15 +17,9 @@ def load_checkpoints(agents, agent_ids, cfg):
                 print(f"walker {aid} skipped (no latest checkpoint found)")
 
     elif mode == "shared":
-        ckpt_name = cfg.checkpoint.shared_name
-        ckpt_path = os.path.join(path, ckpt_name)
-        if not os.path.exists(ckpt_path):
-            print(f"shared checkpoint {ckpt_name} not found")
-            return
-        for aid in agent_ids:
-            _load(agents[aid], ckpt_path, cfg)
-            print(f"walker {aid} initialized from shared checkpoint {ckpt_path}")
-
+        # TODO
+        pass
+    
     elif mode == "individual":
         names = cfg.checkpoint.individual_names
         for aid in agent_ids:
@@ -40,6 +35,7 @@ def load_checkpoints(agents, agent_ids, cfg):
             print(f"walker {aid} initialized from checkpoint {ckpt_path}")
 
 def _get_latest_ckpt(path, agent_id):
+    ### Get latest checkpoint file for specific agent ###
     files = sorted(
         glob.glob(os.path.join(path, f"{agent_id}_checkpoint*.pt")),
         key=os.path.getmtime,
@@ -48,6 +44,7 @@ def _get_latest_ckpt(path, agent_id):
     return files[0] if files else None
 
 def _load(agent, ckpt_path, cfg):
+    ### Load model weights and training state into an agent ###
     checkpoint = torch.load(ckpt_path, weights_only=True)
     agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
     agent.target_net.load_state_dict(checkpoint['target_state_dict'])

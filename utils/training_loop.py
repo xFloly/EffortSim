@@ -5,21 +5,31 @@ from tqdm import trange
 from pettingzoo.sisl import multiwalker_v9
 from omegaconf import OmegaConf
 import os
+import random
 
 from agents.dqn_agent import DQNAgent
 from utils.metrics import compute_distance, update_agent_effort, log_metrics_to_wandb
 from utils.load_model import load_checkpoints
 
 def run(cfg):
-    # --- WandB Initialization ---
+    ### WandB initialization ###
     wandb.init(
         project=cfg.project,
         entity=cfg.entity,
         config=OmegaConf.to_container(cfg, resolve=True)
     )
     print(f"[wandb] Logging to project: {cfg.project} (entity: {cfg.entity})")
+    
+    ### Set SEED for reproducibility ###
+    seed = cfg.get("seed", 42)  # fallback to 42 if not specified
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    print(f"[seed] Random seed set to: {seed}")
 
-    # --- Environment Setup ---
+    ### Environment Setup for multiwalker with stick  in PARALLEL###
     env = multiwalker_v9.parallel_env()
     obs, _ = env.reset()
     print(f"[env] Loaded: multiwalker_v9 with {len(env.possible_agents)} agents")
@@ -27,27 +37,27 @@ def run(cfg):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[device] Using: {device}")
 
+    ### Initialize Agents ### 
     agent_ids = env.possible_agents
     obs_dim = env.observation_space(agent_ids[0]).shape[0]
     action_dim = env.action_space(agent_ids[0]).shape[0]
     print(f"[obs] obs_dim: {obs_dim}, action_dim: {action_dim}")
 
+    ### Choose Agent ###
     agents = {
         aid: DQNAgent(aid, obs_dim, action_dim, device, cfg)
         for aid in agent_ids
     }
-
     print(f"[agents] Initialized: {', '.join(agent_ids)}")
+
+    ### Load pre-trained model checkpoints if resume is enabled ###
+    if cfg.checkpoint.enabled and cfg.checkpoint.resume:
+        load_checkpoints(agents, agent_ids, cfg)
+    
+    ### Train Loop
     reward_history = []
     total_steps = 0
 
-    # --- Load Checkpoints (Optional) ---
-
-    if cfg.checkpoint.enabled and cfg.checkpoint.resume:
-        load_checkpoints(agents, agent_ids, cfg)
-
-        
-    # --- train ---
     for episode in trange(cfg.num_episodes, desc="Training"):
         obs, _ = env.reset()
         episode_reward = 0
@@ -66,24 +76,28 @@ def run(cfg):
             for agent in agents.values():
                 agent.steps_done = total_steps
 
+            # Select actions for each active agent 
             actions = {
                 aid: agents[aid].act(obs[aid])
                 for aid in env.agents if aid in obs
             }
 
+            # Environment step
             next_obs, rewards, terminations, truncations, infos = env.step(actions)
 
+            # Prepare termination flags (for paraller env)
             dones = {
                 aid: terminations.get(aid, False) or truncations.get(aid, False)
                 for aid in agents.keys()
             }
 
+            # Update agent positions for effort tracking 
             current_positions = {
                 aid: infos.get(aid, {}).get("walker_pos", prev_positions[aid])
                 for aid in env.agents
             }
 
-            # Train each active agent
+            # Training step for each active agen
             step_loss = 0
             active_agents = 0
             for aid in actions.keys():
@@ -96,13 +110,9 @@ def run(cfg):
                 next_state = next_obs[aid]
                 done = dones.get(aid, False)
 
-                # Lazy agent reward scaling
-                if aid in cfg.lazy_agents:
-                    reward *= cfg.lazy_scaling
-
                 agent_rewards[aid] += reward
 
-                # if agent fall
+                # Skpis dead/fallen agents
                 if aid in current_positions: 
                     prev = prev_positions.get(aid, (0.0, 0.0))
                     curr = current_positions[aid]
@@ -121,17 +131,19 @@ def run(cfg):
             if active_agents > 0:
                 episode_loss += step_loss / active_agents
 
+            # Break if all agents terminated 
             if not env.agents:
                 break
 
         avg_loss = episode_loss / steps_in_episode if steps_in_episode > 0 else 0
         reward_history.append(episode_reward)
-
+ 
+        #after `target_update_freq` episodes update the agents:
         if (episode + 1) % cfg.target_update_freq == 0:
             for agent in agents.values():
                 agent.update_target_net()
 
-        # --- Logging ---
+        ### LOG to wandb ###
         wandb.log({
             "episode": episode,
             "total_reward": episode_reward,
@@ -142,11 +154,12 @@ def run(cfg):
 
         log_metrics_to_wandb(agent_efforts, agent_rewards, step=episode)
 
+        ### after log_freq episodes : Print LOGS ###
         if (episode + 1) % cfg.log_freq == 0:
             avg20 = np.mean(reward_history[-20:]) if len(reward_history) >= 20 else np.mean(reward_history)
             print(f"Ep {episode+1}/{cfg.num_episodes} | Reward: {episode_reward:.2f} | Avg(20): {avg20:.2f} | Loss: {avg_loss:.4f} | Eps: {agents[agent_ids[0]].epsilon:.3f}")
 
-        # --- Checkpoint ---
+        ### after checkpoint_freq episodes : Add Checkpoint ###
         if cfg.checkpoint.enabled and (episode + 1) % cfg.checkpoint_freq == 0:
             os.makedirs(cfg.checkpoint.path, exist_ok=True)
             for aid in agent_ids:
@@ -160,6 +173,8 @@ def run(cfg):
                 torch.save(ckpt, os.path.join(cfg.checkpoint.path, f"{aid}_checkpoint.pt"))
                 print(f"Checkpoint saved for {aid}")
 
+
+    ### Saving model after training###
     if cfg.checkpoint.enabled:
         os.makedirs(cfg.checkpoint.path, exist_ok=True)
         for aid in agent_ids:

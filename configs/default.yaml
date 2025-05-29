@@ -1,6 +1,8 @@
 project: effortsim
 entity: floly
 
+seed: 42
+
 lr: 0.001
 gamma: 0.99
 eps_start: 1.0
