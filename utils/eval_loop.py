@@ -59,7 +59,14 @@ def evaluate(cfg, num_episodes=10, max_cycles=500):
         episode_rewards.append(total_reward)
 
     ### Compute and print final evaluation score ###
-    avg_reward = np.mean(episode_rewards)
-    print(f"[eval] Average Reward over {num_episodes} episodes: {avg_reward:.2f}")
+    results = {
+        "avg_reward": float(np.mean(episode_rewards)),
+        "std_reward": float(np.std(episode_rewards)),
+        "min_reward": float(np.min(episode_rewards)),
+        "max_reward": float(np.max(episode_rewards))
+    }
+    print("[eval] Summary:", results)
+    return results
+
     env.close()
     return episode_rewards
