@@ -2,18 +2,15 @@ import torch
 import numpy as np
 import random
 from pettingzoo.sisl import multiwalker_v9
+
 from agents.dqn_agent import DQNAgent
 from utils.load_model import load_checkpoints
+from utils.common import set_seed
 
 def evaluate(cfg, num_episodes=10, max_cycles=500):
-        ### Set seed for reproducibility ###
-    seed = cfg.get("seed", 42)
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-    print(f"[seed] Random seed set to: {seed}")
+    ### Set seed for reproducibility ###
+    set_seed(cfg.seed)
+    print(f"[seed] Random seed set to: {cfg.seed}")
 
     ### Set device ###
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

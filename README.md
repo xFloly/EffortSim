@@ -11,7 +11,6 @@ EffortSim is a research project exploring cooperation, laziness, and incentive s
 ### Structure:
 - `agents/` — agent logic and models
 - `env/` — environment wrappers and tracking tools
-- `scripts/` — training and evaluation scripts
 - `utils/` — analytics and reporting tools
 
 ### To run:
@@ -30,7 +29,7 @@ python train.py
 
 - classical DQN Agent (agents/.)
 
-- dodać id runów do wandb (utils/training_loop.py)
+- dodać id runów do wandb (utils/training_loop.py) #DONE
 
 - Lazy Agent + Lazy Reward System (metrics/training_loop)
 

@@ -10,24 +10,23 @@ import random
 from agents.dqn_agent import DQNAgent
 from utils.metrics import compute_distance, update_agent_effort, log_metrics_to_wandb
 from utils.load_model import load_checkpoints
+from utils.common import set_seed
 
 def run(cfg):
     ### WandB initialization ###
     wandb.init(
         project=cfg.project,
         entity=cfg.entity,
-        config=OmegaConf.to_container(cfg, resolve=True)
+        config=OmegaConf.to_container(cfg, resolve=True),
+        id=cfg.wandb_id,
+        name=cfg.wandb_id,
+        resume='allow'
     )
     print(f"[wandb] Logging to project: {cfg.project} (entity: {cfg.entity})")
     
     ### Set SEED for reproducibility ###
-    seed = cfg.get("seed", 42)  # fallback to 42 if not specified
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-    print(f"[seed] Random seed set to: {seed}")
+    set_seed(cfg.seed)
+    print(f"[seed] Random seed set to: {cfg.seed}")
 
     ### Environment Setup for multiwalker with stick  in PARALLEL###
     env = multiwalker_v9.parallel_env()
@@ -170,8 +169,8 @@ def run(cfg):
                     'epsilon': agents[aid].epsilon,
                     'steps_done': agents[aid].steps_done
                 }
-                torch.save(ckpt, os.path.join(cfg.checkpoint.path, f"{aid}_checkpoint.pt"))
-                print(f"Checkpoint saved for {aid}")
+                torch.save(ckpt, os.path.join(cfg.checkpoint.path, f"{aid}_checkpoint_ep{episode+1}.pt"))
+                print(f"Checkpoint saved for {aid} episode {episode+1} ")
 
 
     ### Saving model after training###

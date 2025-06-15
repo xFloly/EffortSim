@@ -35,6 +35,11 @@ def load_checkpoints(agents, agent_ids, cfg):
             print(f"walker {aid} initialized from checkpoint {ckpt_path}")
 
 def _get_latest_ckpt(path, agent_id):
+    ### if final checkpoint exists load it
+    final_ckpt = os.path.join(path, f"{agent_id}_checkpoint_final.pt")
+    if os.path.exists(final_ckpt):
+        return final_ckpt
+
     ### Get latest checkpoint file for specific agent ###
     files = sorted(
         glob.glob(os.path.join(path, f"{agent_id}_checkpoint*.pt")),
