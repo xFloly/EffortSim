@@ -35,15 +35,21 @@ def load_checkpoints(agents, agent_ids, cfg):
             print(f"walker {aid} initialized from checkpoint {ckpt_path}")
 
 def _get_latest_ckpt(path, agent_id):
+    import re
+
     ### if final checkpoint exists load it
     final_ckpt = os.path.join(path, f"{agent_id}_checkpoint_final.pt")
     if os.path.exists(final_ckpt):
         return final_ckpt
 
     ### Get latest checkpoint file for specific agent ###
+    def extract_ep_num(filename):
+        match = re.search(r"shared_checkpoint_ep(\d+)\.pt", filename)
+        return int(match.group(1)) if match else -1
+
     files = sorted(
-        glob.glob(os.path.join(path, f"{agent_id}_checkpoint*.pt")),
-        key=os.path.getmtime,
+        glob.glob(os.path.join(path, "shared_checkpoint_ep*.pt")),
+        key=extract_ep_num,
         reverse=True
     )
     return files[0] if files else None
@@ -51,8 +57,11 @@ def _get_latest_ckpt(path, agent_id):
 def _load(agent, ckpt_path, cfg):
     ### Load model weights and training state into an agent ###
     checkpoint = torch.load(ckpt_path, weights_only=True)
-    agent.policy_net.load_state_dict(checkpoint['policy_state_dict'])
-    agent.target_net.load_state_dict(checkpoint['target_state_dict'])
-    agent.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    agent.epsilon = checkpoint.get('epsilon', cfg.eps_start)
+    agent.actor.load_state_dict(checkpoint['actor_state_dict'])
+    agent.actor_target.load_state_dict(checkpoint['actor_target_state_dict'])
+    agent.critic.load_state_dict(checkpoint['critic_state_dict'])
+    agent.critic_target.load_state_dict(checkpoint['critic_target_state_dict'])
+    agent.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+    agent.critic_optimizer.load_state_dict(checkpoint['critic_optimizer_state_dict'])
     agent.steps_done = checkpoint.get('steps_done', 0)
+    agent.episode = checkpoint.get('episode',0)

@@ -3,12 +3,13 @@ import torch
 import numpy as np
 import random
 from pettingzoo.sisl import multiwalker_v9
+import imageio 
 
-from agents.dqn_agent import DQNAgent
+from agents.ddpg import DDPGAgent
 from utils.load_model import load_checkpoints
 from utils.common import set_seed
 
-def showcase(cfg, num_episodes=3, max_cycles=500):
+def showcase(cfg, max_cycles=500):
     ### Set seed for reproducibility ###
     set_seed(cfg.seed)
     print(f"[seed] Random seed set to: {cfg.seed}")
@@ -27,7 +28,7 @@ def showcase(cfg, num_episodes=3, max_cycles=500):
 
     ### Initialize agents ###
     agents = {
-        aid: DQNAgent(aid, obs_dim, action_dim, device, cfg)
+        aid: DDPGAgent(aid, obs_dim, action_dim, device, cfg)
         for aid in agent_ids
     }
 
@@ -35,38 +36,40 @@ def showcase(cfg, num_episodes=3, max_cycles=500):
     if cfg.checkpoint.enabled and cfg.checkpoint.resume:
         load_checkpoints(agents, agent_ids, cfg)
 
-    ### Showcase loop: play episodes visually without training ###
-    for i_episode in range(num_episodes):
-        print(f"\nShowcase Episode {i_episode + 1}")
-        obs, _ = env.reset()
-        total_reward_episode = 0
+    print("\n[showcase] Running showcase loop continuously.")
+    episode = 0
 
-        for step in range(max_cycles):
-            env.render()
-            time.sleep(0.05)
+    try:
+        while True:
+            episode += 1
+            print(f"\nShowcase Episode {episode}")
+            obs, _ = env.reset()
+            total_reward_episode = 0
 
-            #Compute greedy actions for all current agents
-            actions = {}
-            for aid in env.agents:
-                if aid in obs:
-                    with torch.no_grad():
-                        state = np.array(obs[aid], dtype=np.float32)
-                        state_tensor = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
-                        action = agents[aid].policy_net(state_tensor).cpu().numpy().squeeze()
-                        action = np.clip(action, -1.0, 1.0).astype(np.float32)
-                        actions[aid] = action
+            for step in range(max_cycles):
+                env.render()
+                time.sleep(0.05)
 
-            if not actions:
-                break
+                actions = {}
+                for aid in env.agents:
+                    if aid in obs:
+                        with torch.no_grad():
+                            state = np.array(obs[aid], dtype=np.float32)
+                            action = agents[aid].act(state)
+                            action = np.clip(action, -1.0, 1.0).astype(np.float32)
+                            actions[aid] = action
 
-            # Step the environment in parallel
-            obs, rewards, dones, truncs, infos = env.step(actions)
-            total_reward_episode += sum(rewards.values())
+                if not actions:
+                    break
 
-            # End episode if all agents done 
-            if all(dones.values()):
-                break
+                obs, rewards, dones, truncs, infos = env.step(actions)
+                total_reward_episode += sum(rewards.values())
 
-        print(f"End of Showcase Episode {i_episode + 1}. Total Reward: {total_reward_episode:.2f}")
+                if all(dones.values()):
+                    break
+
+            print(f"End of Showcase Episode {episode}. Total Reward: {total_reward_episode:.2f}")
+    except KeyboardInterrupt:
+        print("\n[showcase] Showcase interrupted by user.")
 
     env.close()
