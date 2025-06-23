@@ -68,6 +68,8 @@ class DDPGAgent:
 
         self.steps_done = 0
 
+        self.episode = 0
+
     def act(self, obs, noise=True):
         obs_tensor = torch.tensor(obs, dtype=torch.float32, device=self.device).unsqueeze(0)
         self.actor.eval()

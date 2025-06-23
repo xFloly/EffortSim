@@ -1,0 +1,30 @@
+agent: ppo
+
+# PPO hiperparametry
+learning_rate: 0.0003        
+gamma: 0.99                  
+gae_lambda: 0.95             
+eps_clip: 0.2                
+entropy_coef: 0.01           
+value_loss_coef: 0.5         
+ppo_epochs: 15               
+mini_batch_size: 128
+learn_every: 5
+
+
+# Trening
+num_episodes: 5000          
+max_steps: 500               
+
+# Checkpointy
+checkpoint:
+  enabled: true
+  resume: true
+  path: checkpoints/
+  freq: 100
+
+# Logowanie
+log_freq: 50
+project: effortsim
+entity: floly
+seed: 42
