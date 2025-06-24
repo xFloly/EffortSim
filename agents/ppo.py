@@ -42,6 +42,9 @@ class PPOAgent:
         self.done_buf = []
         self.val_buf = []
 
+        self.steps_done = 0
+        self.episode = 0
+
     def act(self, obs):
         obs = torch.tensor(obs, dtype=torch.float32).to(self.device)
         with torch.no_grad():

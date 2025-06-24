@@ -8,7 +8,7 @@ from utils.training_loop_ppo import run
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config",type=str,default="configs/ppo.yaml")
+    parser.add_argument("--config",type=str,default="configs/default.yaml")
     args = parser.parse_args()
 
     cfg = OmegaConf.load(args.config)
