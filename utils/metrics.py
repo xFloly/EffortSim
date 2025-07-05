@@ -18,10 +18,26 @@ def log_metrics_to_wandb(efforts, rewards, step=None):
             f"{aid}/reward": rewards.get(aid, 0.0),
         }, step=step)
 
-def penalty(prev_pos, curr_pos, moving_scale=5.0, stationary_penalty = -1.):
-    """penalyty made becase the model was learning to be stationary"""
-    dx = prev_pos[0] - curr_pos[0]         # Forward movement in X
-    penalty = dx * moving_scale            # Encourage moving forward
-    if abs(dx) < 0.01:
-        penalty -= stationary_penalty      # Penalize being stationary
-    return penalty
+def penalty(curr_pos, prev_pos, moving_scale=5, stationary_penalty=-3., fall_penalty_scale=5):
+    """
+    movement penalty/nagroda: nagroda za ruch do przodu
+    + kara za stanie w miejscu
+    + kara za spadanie (zmniejszanie Z)
+    """
+    reward = 0.0
+    # Ruch w poziomie (X)
+    dx = curr_pos[0] - prev_pos[0]
+    # reward = dx * moving_scale
+
+    # Kara za stanie w miejscu
+    if dx <= 0.01:
+        reward += stationary_penalty
+    # else:
+    #     reward += moving_scale
+
+    # Kara za spadanie (Z)
+    # dz = curr_pos[1] - prev_pos[1]  # wyżej = pozytywne
+    # if dz < 0:
+    #     reward += dz * fall_penalty_scale  # dz < 0 → minus → kara
+
+    return reward

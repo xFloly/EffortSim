@@ -6,6 +6,7 @@ def load_checkpoints(agents, agent_ids, cfg):
     ### Get latest checkpoint file for specific agent ###
     mode = cfg.checkpoint.mode
     path = cfg.checkpoint.path
+    loaded_any = False  
 
     if mode == "latest":
         for aid in agent_ids:
@@ -13,6 +14,7 @@ def load_checkpoints(agents, agent_ids, cfg):
             if ckpt:
                 _load(agents[aid], ckpt, cfg)
                 print(f"walker {aid} initialized from checkpoint {ckpt}")
+                loaded_any = True  
             else:
                 print(f"walker {aid} skipped (no latest checkpoint found)")
 
@@ -33,6 +35,8 @@ def load_checkpoints(agents, agent_ids, cfg):
                 continue
             _load(agents[aid], ckpt_path, cfg)
             print(f"walker {aid} initialized from checkpoint {ckpt_path}")
+            loaded_any = True  
+    return loaded_any
 
 def _get_latest_ckpt(path, agent_id):
     import re
@@ -55,13 +59,19 @@ def _get_latest_ckpt(path, agent_id):
     return files[0] if files else None
 
 def _load(agent, ckpt_path, cfg):
-    ### Load model weights and training state into an agent ###
-    checkpoint = torch.load(ckpt_path, weights_only=True)
-    agent.actor.load_state_dict(checkpoint['actor_state_dict'])
-    agent.actor_target.load_state_dict(checkpoint['actor_target_state_dict'])
-    agent.critic.load_state_dict(checkpoint['critic_state_dict'])
-    agent.critic_target.load_state_dict(checkpoint['critic_target_state_dict'])
-    agent.actor_optimizer.load_state_dict(checkpoint['actor_optimizer_state_dict'])
-    agent.critic_optimizer.load_state_dict(checkpoint['critic_optimizer_state_dict'])
-    agent.steps_done = checkpoint.get('steps_done', 0)
-    agent.episode = checkpoint.get('episode',0)
+    checkpoint = torch.load(ckpt_path, map_location=agent.device)
+
+    # ── nowy format ─────────────────────────────
+    if "actor_state_dict" in checkpoint:
+        agent.actor.load_state_dict(checkpoint["actor_state_dict"])
+        agent.critic.load_state_dict(checkpoint["critic_state_dict"])
+    # ── stary format (wsteczna kompat.) ─────────
+    else:
+        agent.actor.load_state_dict(checkpoint["model_state_dict"], strict=False)
+
+    if "optimizer_state_dict" in checkpoint:
+        agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+    agent.episode    = checkpoint.get("episode", 0)
+    agent.steps_done = checkpoint.get("steps_done", 0)
+
