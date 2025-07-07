@@ -20,6 +20,15 @@ conda activate effortsim
 python train.py
 ```
 
+main training functionality is contained within files:
+- train.py
+- training_loop_ppo.py
+- agents/ppo.y
+- utils/metrics
+
+Visualising trained model is possible with generate_video.py
+
+
 ### TODO
 - metrics for training - rewards (utils/metrics.py)
 
