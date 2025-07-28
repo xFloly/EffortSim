@@ -20,3 +20,5 @@ dependencies:
       - wandb==0.19.11
       - rich
       - Box2D
+      - imageio[ffmpeg]
+      - imageio[pyav]
