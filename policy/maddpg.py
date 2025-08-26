@@ -28,7 +28,11 @@ def run(cfg):
     print(f"[seed] Random seed set to: {cfg.seed}")
 
     ### Environment Setup ###
-    env = multiwalker_v9.parallel_env()
+    env = multiwalker_v9.parallel_env(
+        terminate_reward=-100.0,
+        fall_reward=-10.0,
+        forward_reward=20.0
+    )
     obs, _ = env.reset()
     agent_ids = env.possible_agents
     print(f"[env] Loaded: multiwalker_v9 with {len(agent_ids)} agents")
