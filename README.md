@@ -1,5 +1,5 @@
 # EffortSim
-
+## Ignacy Kolton, Kacper Marzol, Filip Soszyński
 EffortSim is a research project exploring cooperation, laziness, and incentive structures in multi-agent reinforcement learning using the `multiwalker_v9` environment from PettingZoo.
 
 ---
@@ -42,10 +42,93 @@ Main training functionality is contained within files:
 - agents/ppo.y
 - utils/metrics (we include penalization to encourage agen movement)
 
-### Notes 
-we use centralized PPO where all agents share weights. this was necessary because independent agents failed to converge.
+[//]: # (### Notes )
 
-at the moment model still converges to local minima and stops at some point we dont know why 
+[//]: # (we use centralized PPO where all agents share weights. this was necessary because independent agents failed to converge.)
+
+[//]: # ()
+[//]: # (at the moment model still converges to local minima and stops at some point we dont know why )
+
+
+## Algorithm & Model Details
+
+## PPO
+Agent setup: One shared policy network for all walkers; agents share weights to ensure stable learning. 
+
+Network architecture: Fully connected MLP, 2 hidden layers of 128 units each, ReLU activations.
+
+Hyperparameters:
+* Learning rate: 0.0003 
+* Clip ratio: 0.2 
+* Batch size: 128
+
+## DDPG 
+### Shared
+**Agent setup**: Single actor-critic network shared among all walkers.
+**Architecture**: Actor and critic both MLPs with 2 hidden layers of 128 units, ReLU.
+
+### Independent
+**Agent setup**: Each walker has its own actor-critic network.
+**Architecture**: Same as above, but independent for each agent.
+
+### Multi-Agent
+**Agent setup**: Each walker has its own actor network but shares a common critic.
+**Architecture**: Actor: 2 hidden layers, 128 units, ReLU; Critic: 2 hidden layers, 128 units, ReLU.
+
+
+## Reward & Incentive Design
+The reward structure in EffortSim is designed to balance cooperation with individual effort, encouraging agents to move efficiently while maintaining collective success.
+
+### Forward Progress
+Agents receive positive reward proportional to their forward movement.
+Encourages walkers to move together rather than stop. 
+### Lazy-Agent Penalty
+Penalizes agents who contribute minimal movement or remain idle.
+
+# Results and experiments
+We compare two models with different approaches, we provide movies created after the training to compare the cooperation 
+## PPO
+
+<video width="300" controls>
+  <source src="readme/ppo_run.mp4" type="video/mp4">
+</video>
+
+## DDPG
+### Shared
+One universal model for all 3 walkers
+
+<video width="300" controls>
+  <source src="readme/ddpg_shared_run.mp4" type="video/mp4">
+</video>
+
+### Independent
+Each walker has its own network
+
+<video width="300" controls>
+  <source src="readme/ddpg_independet_run.mp4" type="video/mp4">
+</video>
+
+### Multi-agent 
+Each walker has its own agent, but they share the critic
+
+<video width="300" controls>
+  <source src="readme/ddpg_ma_run.mp4" type="video/mp4">
+</video>
+
+The results are summarized in the table 
+
+Algorithm | Average Reward | Cooperation Rate | Notes
+--- |----------------| --- | ---
+DDPG_shared| *:(*           | *:(* | ?
+DDPG_independent | *:(*     | *:(* | Unstable
+DDPG_multiagent |*:(*     | *:(* | Failed to converge
+PPO | *:(*      | *:(* |  prone to local minima
+
+We also provide plots showcasing the training process:
+
+![plots](readme/plot.png)
+
+
 
 ### TODO
 - refactor the model loading mechanism in utils/load_model.py for shared model
