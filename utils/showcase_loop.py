@@ -18,7 +18,10 @@ def showcase(cfg, max_cycles=500):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     ### Create parallel PettingZoo environment (with rendering enabled 'human') ###
-    env = multiwalker_v9.parallel_env(render_mode="human")
+    env = multiwalker_v9.parallel_env(render_mode="human",
+                                      terminate_reward=-100.0,
+                                      fall_reward=-10.0,
+                                      forward_reward=20.0)
     env.reset()
 
     ### Setup agent metadata ###

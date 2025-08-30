@@ -6,8 +6,9 @@ from pettingzoo.sisl import multiwalker_v9
 from omegaconf import OmegaConf
 import os
 
-from agents.maddpg import MADDPG   # <- use the new class
-from utils.metrics import compute_distance, update_agent_effort, log_metrics_to_wandb
+from agents.maddpg import MADDPG 
+from utils.metrics import compute_distance, update_agent_effort, log_metrics_to_wandb, penalty
+from utils.maddpg_io import save_maddpg_checkpoints, load_maddpg_checkpoints
 from utils.common import set_seed
 
 
@@ -48,13 +49,20 @@ def run(cfg):
     maddpg = MADDPG(agent_ids, obs_dim, action_dim, device, cfg)
     print(f"[agents] MADDPG initialized with centralized critic and {len(agent_ids)} actors")
 
-    total_steps = 0
-    start_episode = 0
+    #  Resume from checkpoint 
+    if cfg.checkpoint.enabled and cfg.checkpoint.resume:
+        loaded_any, total_steps, start_episode = load_maddpg_checkpoints(maddpg, agent_ids, cfg)
+        if loaded_any:
+            print(f"[resume] Resuming from episode {start_episode}, total_steps: {total_steps}")
+        else:
+            total_steps, start_episode = 0, 0
+    else:
+        total_steps, start_episode = 0, 0
 
     ### Training Loop ###
     reward_history = []
 
-    for episode in trange(start_episode, cfg.num_episodes, desc="Training", initial=start_episode, total=cfg.num_episodes):
+    for episode in trange(start_episode, cfg.num_episodes, desc="Training"):
         obs, _ = env.reset()
         episode_reward = 0
         episode_loss_critic = 0.0
@@ -70,27 +78,33 @@ def run(cfg):
             total_steps += 1
             steps_in_episode += 1
 
-            # --- Actions from MADDPG ---
+            #Actions from MADDPG 
             actions = maddpg.act(obs)
 
-            # --- Step environment ---
+            #Step environment 
             next_obs, rewards, terminations, truncations, infos = env.step(actions)
 
             dones = {aid: terminations.get(aid, False) or truncations.get(aid, False) for aid in agent_ids}
 
-            # --- Effort & reward tracking ---
+            #Effort & reward tracking 
             current_positions = {aid: infos.get(aid, {}).get("walker_pos", prev_positions[aid]) for aid in env.agents}
             for aid in actions.keys():
-                agent_rewards[aid] += rewards.get(aid, 0.0)
+                
+                base_reward = rewards.get(aid, 0.0)
                 prev = prev_positions.get(aid, (0.0, 0.0))
                 curr = current_positions.get(aid, prev)
+                r_penalty = penalty(curr, prev)
+                total_reward = base_reward + r_penalty
+
+                agent_rewards[aid] += total_reward
+
                 update_agent_effort(agent_efforts, aid, compute_distance(prev, curr))
                 prev_positions[aid] = curr
 
-            # --- Store transition in shared replay ---
+            #Store transition in shared replay
             maddpg.push(obs, actions, rewards, next_obs, dones)
 
-            # --- Learn (central critic + all actors) ---
+            #Learn (central critic + all actors)
             losses = maddpg.learn()
             if losses:
                 critic_loss, actor_loss = losses
@@ -121,7 +135,13 @@ def run(cfg):
             print(f"Episode {episode} | Avg Reward: {avg_reward:.2f} | Critic Loss: {avg_critic_loss:.4f} | Actor Loss: {avg_actor_loss:.4f}")
             log_metrics_to_wandb(agent_efforts, agent_rewards, episode)
 
-        # (optional) checkpointing: save each actor + critic here if needed
+        if cfg.checkpoint.enabled and (episode + 1) % cfg.checkpoint_freq == 0:
+            save_maddpg_checkpoints(maddpg, agent_ids, cfg, episode, total_steps)
+
+      
+
+    # final save 
+    save_maddpg_checkpoints(maddpg, agent_ids, cfg, episode, total_steps, final=True)
 
     env.close()
     wandb.finish()

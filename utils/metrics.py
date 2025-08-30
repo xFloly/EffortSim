@@ -35,7 +35,7 @@ def log_metrics_to_wandb(efforts, rewards, step=None):
             f"{aid}/reward": rewards.get(aid, 0.0),
         }, step=step)
 
-def penalty(curr_pos, prev_pos, moving_scale=5, stationary_penalty=-3.0, fall_penalty_scale=5):
+def penalty(curr_pos, prev_pos, moving_scale=5, stationary_penalty=-10.0, fall_penalty_scale=5):
     """
     Compute a custom movement penalty/reward based on positional change.
 

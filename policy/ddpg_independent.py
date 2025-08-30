@@ -8,7 +8,7 @@ import os
 import random
 
 from agents.ddpg import DDPGAgent
-from utils.metrics import compute_distance, update_agent_effort, log_metrics_to_wandb
+from utils.metrics import compute_distance, update_agent_effort, log_metrics_to_wandb,penalty
 from utils.load_model import load_checkpoints
 from utils.common import set_seed
 
@@ -120,15 +120,20 @@ def run(cfg):
                 next_state = next_obs[aid]
                 done = dones.get(aid, False)
 
-                agent_rewards[aid] += reward
 
-                # Skpis dead/fallen agents
-                if aid in current_positions: 
-                    prev = prev_positions.get(aid, (0.0, 0.0))
-                    curr = current_positions[aid]
-                    dist = compute_distance(prev, curr)
-                    update_agent_effort(agent_efforts, aid, dist)
-                    prev_positions[aid] = curr
+                prev = prev_positions.get(aid, (0.0, 0.0))
+                curr = current_positions[aid]
+                dist = compute_distance(prev, curr)
+                update_agent_effort(agent_efforts, aid, dist)
+                prev_positions[aid] = curr
+
+
+                r_penalty = penalty(curr, prev)
+                r_penalty = penalty(curr, prev)
+                total_reward = reward + r_penalty
+                
+                agent_rewards[aid] += total_reward
+
 
                 agents[aid].push(state, action, reward, next_state, done)
                 losses = agents[aid].learn()
