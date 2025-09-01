@@ -89,9 +89,8 @@ Penalizes agents who contribute minimal movement or remain idle.
 We compare two models with different approaches, we provide movies created after the training to compare the cooperation 
 ## PPO
 
-<video width="300" controls>
-  <source src="readme/ppo_run.mp4" type="video/mp4">
-</video>
+![Video preview](readme/ppo.gif)
+
 
 ## DDPG
 ### Shared

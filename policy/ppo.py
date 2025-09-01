@@ -50,10 +50,10 @@ import wandb
 from tqdm import trange
 from omegaconf import OmegaConf
 from pettingzoo.sisl import multiwalker_v9
-
+from utils.load_model import load_checkpoints
 from agents.ppo import PPOAgent
 from utils.metrics import compute_distance, update_agent_effort, log_metrics_to_wandb, penalty
-from utils.load_model import load_checkpoints
+# from utils.load_model import load_checkpoints
 from utils.common import set_seed
 
 

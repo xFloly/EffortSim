@@ -1,76 +1,94 @@
-import argparse
-import os
-
-import imageio
+import time
 import torch
-from omegaconf import OmegaConf
+import numpy as np
+import imageio
 from pettingzoo.sisl import multiwalker_v9
+from utils.common import set_seed
+from utils.load_model import load_agent, load_checkpoints
+from agents.maddpg import MADDPG
+from agents.ddpg import DDPGAgent
 
-from agents.ppo import PPOAgent
-
-
-def generate_video(cfg, checkpoint_path):
-    """Run a saved PPO policy and dump an MP4.
-
-    Kompatybilne z nowym `ppo.py`, w którym:
-    * sieć aktora to `agent.actor`
-    * checkpointy zawierają klucz `"model_state_dict"` z wagami aktora
-    * `act()` zwraca `(action, logp, value, u)` – bierzemy tylko pierwszy
-    """
-
+def generate_video(cfg, agent_name, model_path, output_path, max_cycles=500, sleep_s=0.0):
+    set_seed(cfg.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"[eval] Using device: {device}, seed: {cfg.seed}")
 
-    # ------------- Env w trybie RGB-array ---------------------------------
-    env = multiwalker_v9.parallel_env(render_mode="rgb_array")
+    env = multiwalker_v9.parallel_env(render_mode="rgb_array",
+                                      terminate_reward=-100.0,
+                                      fall_reward=-10.0,
+                                      forward_reward=20.0)
     obs, _ = env.reset()
-
-    obs_dim    = env.observation_space(env.possible_agents[0]).shape[0]
-    action_dim = env.action_space(env.possible_agents[0]).shape[0]
-
-    # ------------- Załaduj agenta + checkpoint ----------------------------
-    agent = PPOAgent("shared", obs_dim, action_dim, device, cfg)
-
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-
-    # ── nowy format (po zmianach w run()) ─────────────────────────────────
-    if "actor_state_dict" in checkpoint:
-        agent.actor.load_state_dict(checkpoint["actor_state_dict"])
-    # ── wsteczna kompatybilność (stary klucz) ─────────────────────────────
-    else:
-        agent.actor.load_state_dict(checkpoint["model_state_dict"], strict=False)
-
-    agent.actor.eval()
-
-    # ------------- Rollout & nagrywanie -----------------------------------
+    agent_name = agent_name.lower()
+    multi_agent = False
     frames = []
-    done   = False
 
-    while not done:
-        # akcje dla wszystkich aktywnych agentów
-        actions = {
-            aid: agent.act(obs[aid])[0]  # pobierz tylko `action`
-            for aid in env.agents if aid in obs
+    if agent_name == "maddpg":
+        agent = load_agent("maddpg", model_path, env, device = device, cfg = cfg)
+        multi_agent = True
+    elif agent_name == "ddpg":
+        agent_ids = env.possible_agents
+        obs_dim = env.observation_space(agent_ids[0]).shape[0]
+        action_dim = env.action_space(agent_ids[0]).shape[0]
+        agent = {
+            aid: DDPGAgent(aid, obs_dim, action_dim, device, cfg)
+            for aid in agent_ids
         }
+        if cfg.checkpoint.enabled and cfg.checkpoint.resume:
+            load_checkpoints(agent, agent_ids, cfg)
+    elif agent_name == "ppo":
+        agent = load_agent("ppo", model_path, env, device = device, cfg = cfg)
+    else:
+        raise ValueError(f"Unsupported agent: {agent_name}")
 
-        obs, _, terminations, truncations, _ = env.step(actions)
-        done = not env.agents or any(terminations.values()) or any(truncations.values())
+    total_reward_episode = 0
+    for step in range(max_cycles):
+        if multi_agent:
+            actions = agent.act(obs, noise_std=0.0)
+        elif agent_name == "ddpg":
+            actions = {}
+            for aid in env.agents:
+                if aid in obs:
+                    with torch.no_grad():
+                        state = np.array(obs[aid], dtype=np.float32)
+                        a = agent[aid].act(state)
+                        actions[aid] = np.clip(a, -1.0, 1.0).astype(np.float32)
+        else:  # PPO
+            actions = {aid: agent.act(obs[aid])[0] for aid in env.agents if aid in obs}
 
-        frame = env.render()
-        if frame is not None:
-            frames.append(frame)
+        next_obs, rewards, terminations, truncations, infos = env.step(actions)
+        frames.append(env.render())  # record frame
+        total_reward_episode += sum(rewards.values())
+        obs = next_obs
 
-    # ------------- Zapis wideo --------------------------------------------
-    os.makedirs("output", exist_ok=True)
-    video_path = os.path.join("output", "video.mp4")
-    imageio.mimsave(video_path, frames, fps=30)
-    print(f"[✓] Video saved to {video_path}")
+        if not env.agents or all(terminations.values()):
+            break
+        if sleep_s > 0:
+            time.sleep(sleep_s)
+
+    import os
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    imageio.mimsave(output_path, frames, fps=30)
+    print(f"[eval] Video saved at: {output_path}")
+
+    env.close()
+    return total_reward_episode
 
 
 if __name__ == "__main__":
+    import argparse
+    from omegaconf import OmegaConf
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/ppo.yaml", help="Path to config file")
-    parser.add_argument("--checkpoint", type=str, default="checkpoints_ppo_penalyty/shared_checkpoint_ep63500.pt", help="Path to model checkpoint")
+    parser.add_argument("--agent", type=str, choices=["ppo", "ddpg", "maddpg"], required=True)
+    parser.add_argument("--model_path", type=str, required=True)
+    parser.add_argument("--output", type=str, default="outputs/videos/demo.mp4")
+    parser.add_argument("--max_cycles", type=int, default=500)
+    parser.add_argument("--config", type=str, default=None)
+    parser.add_argument("--sleep", type=float, default=0.0)
     args = parser.parse_args()
 
-    cfg = OmegaConf.load(args.config)
-    generate_video(cfg, args.checkpoint)
+    cfg = OmegaConf.load(args.config) if args.config else None
+    generate_video(cfg, args.agent, args.model_path, args.output, args.max_cycles, args.sleep)
+
+
+# python generate_video.py --agent ddpg --model_path checkpoints/ddpg_final.pt --output outputs/videos/ddpg_demo.mp4
