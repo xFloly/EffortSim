@@ -1,68 +1,113 @@
+import time
 import torch
 import numpy as np
 from pettingzoo.sisl import multiwalker_v9
 from utils.common import set_seed
-from utils.load_model import load_agent
-from utils.load_model import load_checkpoints
+from utils.load_model import load_agent, load_checkpoints
 from agents.maddpg import MADDPG
-from utils.maddpg_io import load_maddpg_checkpoints
+from agents.ddpg import DDPGAgent
+from agents.ppo import PPOAgent
 
-def evaluate(cfg, num_episodes=10, max_cycles=500):
 
+def evaluate(cfg, agent_name, model_path, num_episodes=1, max_cycles=500):
     set_seed(cfg.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[eval] Using device: {device}, seed: {cfg.seed}")
-    env = multiwalker_v9.parallel_env()
 
-    agent_ids = env.possible_agents
-    obs_dim = env.observation_space(agent_ids[0]).shape[0]
-    action_dim = env.action_space(agent_ids[0]).shape[0]
-    print(f"[eval] Environment loaded: {len(agent_ids)} agents")
+    env = multiwalker_v9.parallel_env(render_mode="rgb_array",
+                                      terminate_reward=-100.0,
+                                      fall_reward=-10.0,
+                                      forward_reward=20.0)
+    obs, _ = env.reset()
+    agent_name = agent_name.lower()
+    multi_agent = False
+    agent_ids  = env.possible_agents
 
-    if cfg.agent.lower() == "maddpg":
-        maddpg = MADDPG(agent_ids, obs_dim, action_dim, device, cfg)
-        if cfg.checkpoint.enabled and cfg.checkpoint.resume:
-            load_maddpg_checkpoints(maddpg, agent_ids, cfg)
-        agent_type = "maddpg"
+    if agent_name == "maddpg":
+        agent = load_agent("maddpg", model_path, env, device = device, cfg = cfg)
+        multi_agent = True
+    elif agent_name == "ddpg":
+        agent = load_agent("ddpg", model_path, env, device = device, cfg = cfg)
+    elif agent_name == "ppo":
+        agent = load_agent("ppo", model_path, env, device = device, cfg = cfg)
     else:
-        agents = load_agent(cfg.agent, cfg.checkpoint.path, env, device = device, cfg = cfg)
-        agent_type = cfg.agent.lower()
+        raise ValueError(f"Unsupported agent: {agent_name}")
 
-    episode_rewards = []
+
+    # ----- Rollout loop -----
+    data = [None for _ in range(num_episodes)]
 
     for ep in range(num_episodes):
         obs, _ = env.reset()
-        total_reward = 0
-        step_count = 0
+        done = False
+        steps = 0
+        reward_total = {aid: 0.0 for aid in agent_ids}
+        dist = {aid: 0.0 for aid in agent_ids}
 
-        while step_count < max_cycles and env.agents:
-            step_count += 1
-
-            if agent_type == "maddpg":
-                actions = maddpg.act(obs, noise_std=0.0)
-            elif agent_type in ["ddpg", "ppo"]:
-                actions = {aid: agents.act(obs[aid])[0] for aid in env.agents if aid in obs}
-            else:
-                raise ValueError(f"[eval] Unsupported agent type: {agent_type}")
+        for _ in range(max_cycles):
+            steps += 1
+            if multi_agent:
+                actions = agent.act(obs, noise_std=0.0)
+            elif agent_name == "ddpg":
+                actions = {
+                aid: agent.act(obs[aid])
+                for aid in env.agents if aid in obs
+            }
+            else:  # PPO
+                actions = {
+                    aid: agent.act(obs[aid])[0]
+                    for aid in env.agents if aid in obs
+                }
 
             next_obs, rewards, terminations, truncations, infos = env.step(actions)
-            dones = {aid: terminations.get(aid, False) or truncations.get(aid, False) for aid in env.agents}
 
-            total_reward += sum(rewards.values())
+            # Calculate distance
+            for aid in env.agents:
+                if aid in next_obs:
+                    vx, vy = float(next_obs[aid][2]), float(next_obs[aid][3])
+                    dist[aid] += (vx**2 + vy**2) ** 0.5
+                if aid in rewards:
+                    reward_total[aid] += rewards[aid]
+
             obs = next_obs
-            if not env.agents:
+            done = not env.agents or all(terminations.values()) or all(truncations.values())
+            if done:
                 break
 
-        episode_rewards.append(total_reward)
-        print(f"[eval] Episode {ep+1}/{num_episodes}: Total Reward = {total_reward:.2f}")
+        data[ep] = (steps, dist,reward_total)
 
+    # ---- Aggregate Results ----
+    print("\n[✓] Evaluation complete, Aggregating Results.\n")
 
-    results = {
-        "avg_reward": float(np.mean(episode_rewards)),
-        "std_reward": float(np.std(episode_rewards)),
-        "min_reward": float(np.min(episode_rewards)),
-        "max_reward": float(np.max(episode_rewards)),
-    }
-    print("[eval] Summary:", results)
+    
+    single_walker_dist = {aid: 0.0 for aid in agent_ids}
+    single_walker_rewards = {aid: 0.0 for aid in agent_ids}
+    total_steps = 0
+    total_distance = 0.0
+    total_reward = 0.0
+
+    for steps, dist, rewards in data:
+        total_steps += steps
+        for aid in agent_ids:
+            single_walker_dist[aid] += dist[aid]
+            single_walker_rewards[aid] += rewards[aid]
+            total_distance += dist[aid]
+            total_reward += rewards[aid]
+
+    avg_steps = total_steps / num_episodes
+    avg_dist = total_distance / (num_episodes * len(agent_ids))
+    avg_reward = total_reward / (num_episodes * len(agent_ids))
+
+    # Per-agent stats
+    for aid in agent_ids:
+        print(f"  {aid}: {single_walker_dist[aid] / num_episodes:.3f} units,"
+              f" {single_walker_rewards[aid] / num_episodes:.3f} reward")
+
+    print(f"\n[eval] Total distance traveled: {total_distance:.3f} units")
+    print(f"[eval] Average distance per walker/episode: {avg_dist:.3f} units")
+    print(f"[eval] Total reward: {total_reward:.3f}")
+    print(f"[eval] Average reward per walker/episode: {avg_reward:.3f}")
+    print(f"[eval] Average steps per episode: {avg_steps:.1f}")
+    print(f"[eval] Average speed: {avg_dist / avg_steps:.4f} units/action")
+
     env.close()
-    return results

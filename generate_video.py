@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore")
+
 import time
 import torch
 import numpy as np
@@ -26,15 +29,7 @@ def generate_video(cfg, agent_name, model_path, output_path, max_cycles=500, sle
         agent = load_agent("maddpg", model_path, env, device = device, cfg = cfg)
         multi_agent = True
     elif agent_name == "ddpg":
-        agent_ids = env.possible_agents
-        obs_dim = env.observation_space(agent_ids[0]).shape[0]
-        action_dim = env.action_space(agent_ids[0]).shape[0]
-        agent = {
-            aid: DDPGAgent(aid, obs_dim, action_dim, device, cfg)
-            for aid in agent_ids
-        }
-        if cfg.checkpoint.enabled and cfg.checkpoint.resume:
-            load_checkpoints(agent, agent_ids, cfg)
+        agent = load_agent("ddpg", model_path, env, device = device, cfg = cfg)
     elif agent_name == "ppo":
         agent = load_agent("ppo", model_path, env, device = device, cfg = cfg)
     else:
@@ -45,30 +40,28 @@ def generate_video(cfg, agent_name, model_path, output_path, max_cycles=500, sle
         if multi_agent:
             actions = agent.act(obs, noise_std=0.0)
         elif agent_name == "ddpg":
-            actions = {}
-            for aid in env.agents:
-                if aid in obs:
-                    with torch.no_grad():
-                        state = np.array(obs[aid], dtype=np.float32)
-                        a = agent[aid].act(state)
-                        actions[aid] = np.clip(a, -1.0, 1.0).astype(np.float32)
+            actions = {aid: agent.act(obs[aid]) for aid in env.agents if aid in obs}
         else:  # PPO
             actions = {aid: agent.act(obs[aid])[0] for aid in env.agents if aid in obs}
 
         next_obs, rewards, terminations, truncations, infos = env.step(actions)
-        frames.append(env.render())  # record frame
+        
+        frame = env.render()
+        if frame is not None:
+            frames.append(frame)
+
         total_reward_episode += sum(rewards.values())
         obs = next_obs
 
-        if not env.agents or all(terminations.values()):
+        done = not env.agents or any(terminations.values()) or any(truncations.values())
+        if done:
             break
-        if sleep_s > 0:
-            time.sleep(sleep_s)
 
     import os
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     imageio.mimsave(output_path, frames, fps=30)
     print(f"[eval] Video saved at: {output_path}")
+    print(f"[eval] Total reward {total_reward_episode}")
 
     env.close()
     return total_reward_episode

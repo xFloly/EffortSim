@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore", message=".*weights_only=False.*", category=FutureWarning)
+
 import os
 import torch
 import glob
@@ -87,7 +90,7 @@ def load_agent(agent_name, model_path, env, device="cpu", cfg=None):
         from agents.ppo import PPOAgent
         agent = PPOAgent("evalPPO", obs_dim, action_dim, device=device, cfg=cfg)
     elif agent_name == "ddpg":
-        from agents.ddpg import DDPAgent
+        from agents.ddpg import DDPGAgent
         agent = DDPGAgent("evalDDPG", obs_dim, action_dim, device=device, cfg=cfg)
     elif agent_name == "maddpg":
         from agents.maddpg import MADDPG
@@ -110,6 +113,8 @@ def load_agent(agent_name, model_path, env, device="cpu", cfg=None):
 
     agent.episode    = checkpoint.get("episode", 0)
     agent.steps_done = checkpoint.get("steps_done", 0)
+
+    print(f"walker {agent_name} initialized from checkpoint {model_path}")
 
     agent.actor.eval()
     if hasattr(agent, "critic"):

@@ -7,21 +7,16 @@ from utils.eval_loop import evaluate
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, default="configs/default.yaml")
-    parser.add_argument("--agent", type=str, choices=["ppo", "ddpg", "maddpg"])
-    parser.add_argument("--model_path", type=str)
+    parser.add_argument("--agent", type=str, choices=["ppo", "ddpg", "maddpg"], required=True)
+    parser.add_argument("--model_path", type=str, required=True)
+    parser.add_argument("--config", type=str, required=True)
+    parser.add_argument("--episodes", type=int, default=20)
+    parser.add_argument("--max_cycles", type=int, default=500)
     args = parser.parse_args()
 
     cfg = OmegaConf.load(args.config)
-    if args.agent is not None:
-        cfg.agent = args.agent
-    if args.model_path is not None:
-        if "checkpoint" not in cfg or cfg.checkpoint is None:
-            cfg.checkpoint = {}
-        cfg.checkpoint.path = args.model_path
+    evaluate(cfg, args.agent, args.model_path, num_episodes=args.episodes, max_cycles=args.max_cycles)
 
-    evaluate(cfg)
 if __name__ == "__main__":
     main()
 
