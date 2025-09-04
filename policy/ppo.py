@@ -57,7 +57,7 @@ from utils.metrics import compute_distance, update_agent_effort, log_metrics_to_
 from utils.common import set_seed
 
 
-def run(cfg):
+def run(cfg, LAST_EVAL=False):
     """
     Main training loop for the PPO algorithm using the Multiwalker-v9 environment.
     """
@@ -260,5 +260,57 @@ def run(cfg):
         }, final_path)
         print("[Final] Checkpoint saved")
 
+    if LAST_EVAL:     
+      eval_episodes = getattr(cfg, "eval_episodes", 10)
+      eval_max_steps = getattr(cfg, "eval_max_steps", cfg.max_steps)
+      final_eval = eval_after_training(cfg, shared_agent, num_episodes=eval_episodes, max_cycles=eval_max_steps)
+
     env.close()
     wandb.finish()
+
+    return final_eval
+
+
+def eval_after_training(cfg, agent, num_episodes=10, max_cycles=500):
+    """
+    Returns: mean reward per walker per episode (float)
+    Uses the same reward accounting as your evaluate() for PPO.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    total_reward = 0.0
+    total_agents = 0
+    # create a fresh env per episode (no rendering for speed)
+    for _ in range(num_episodes):
+        env = multiwalker_v9.parallel_env(
+            terminate_reward=-100.0,
+            fall_reward=-10.0,
+            forward_reward=20.0,
+        )
+        obs, _ = env.reset()
+        agent_ids = env.possible_agents
+        ep_reward_sum = {aid: 0.0 for aid in agent_ids}
+
+        for _ in range(max_cycles):
+            # PPO branch from your evaluate(): take the first element of act(...)
+            actions = {
+                aid: agent.act(obs[aid])[0]
+                for aid in env.agents
+                if aid in obs
+            }
+            next_obs, rewards, terminations, truncations, infos = env.step(actions)
+
+            for aid in env.agents:
+                if aid in rewards:
+                    ep_reward_sum[aid] += rewards[aid]
+
+            obs = next_obs
+            done = (not env.agents) or (all(terminations.values()) or all(truncations.values()))
+            if done:
+                break
+
+        total_reward += sum(ep_reward_sum.values())
+        total_agents = len(agent_ids)  # constant
+        env.close()
+
+    # average per walker per episode
+    return float(total_reward / (num_episodes * total_agents))
