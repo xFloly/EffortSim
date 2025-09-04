@@ -3,10 +3,11 @@ import torch
 import numpy as np
 from pettingzoo.sisl import multiwalker_v9
 from utils.common import set_seed
-from utils.load_model import load_agent, load_checkpoints
+from utils.load_model import load_agent, load_checkpoints, load_maddpg_checkpoints
 from agents.maddpg import MADDPG
 from agents.ddpg import DDPGAgent
 from agents.ppo import PPOAgent
+
 
 
 def evaluate(cfg, agent_name, model_path, num_episodes=1, max_cycles=500):
@@ -31,12 +32,11 @@ def evaluate(cfg, agent_name, model_path, num_episodes=1, max_cycles=500):
         from agents.maddpg import MADDPG
         agent = MADDPG(agent_ids, obs_dim, action_dim, device=device, cfg=cfg)
         multi_agent = True
-        load_checkpoints(agent.agents, agent_ids, cfg)
+        load_maddpg_checkpoints(agent, agent_ids, cfg, model_path)
     elif agent_name == "ddpg":
         from agents.multi_ddpg import MultiDDPG
-        agent = MultiDDPG(agent_ids, obs_dim, action_dim, device=device, cfg=cfg)
+        agent = MultiDDPG(agent_ids, obs_dim, action_dim, device=device, cfg=cfg, checkpoint_path=model_path)
         multi_agent = True
-
     elif agent_name == "ppo":
         agent = load_agent("ppo", model_path, env, device = device, cfg = cfg)
     else:

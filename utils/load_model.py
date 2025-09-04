@@ -5,10 +5,9 @@ import os
 import torch
 import glob
 
-def load_checkpoints(agents, agent_ids, cfg):
+def load_checkpoints(agents, agent_ids, cfg, path):
     ### Get latest checkpoint file for specific agent ###
     mode = cfg.checkpoint.mode
-    path = cfg.checkpoint.path
     loaded_any = False
 
     if mode == "latest":
@@ -27,7 +26,6 @@ def load_checkpoints(agents, agent_ids, cfg):
         ckpt_path = os.path.join(path, ckpt_name)
         if not os.path.exists(ckpt_path):
             print(f"[warn] shared checkpoint not found: {ckpt_path}")
-
         else:
             for aid in agent_ids:
                 _load(agents[aid], ckpt_path, cfg)
@@ -55,6 +53,7 @@ def _get_latest_ckpt(path, agent_id):
 
     ### if final checkpoint exists load it
     final_ckpt = os.path.join(path, f"{agent_id}_checkpoint_final.pt")
+    print(f"[info] loading checkpoint {final_ckpt}")
     if os.path.exists(final_ckpt):
         return final_ckpt
 
@@ -131,3 +130,71 @@ def load_agent(agent_name, model_path, env, device="cpu", cfg=None):
 
     return agent
 
+
+def load_maddpg_checkpoints(maddpg, agent_ids, cfg, path):
+    """
+    Load MADDPG checkpoints for all actors + centralized critic.
+    Returns (total_steps, start_episode) so training can resume.
+    """
+    # path = cfg.checkpoint.path
+    loaded_any = False
+    total_steps = 0
+    start_episode = 0
+
+    # --- load actors ---
+    for aid in agent_ids:
+        ckpt = _get_latest_file(path, f"{aid}_maddpg_actor")
+        if ckpt:
+            checkpoint = torch.load(ckpt, map_location=maddpg.device)
+            maddpg.actors[aid].load_state_dict(checkpoint["actor_state_dict"])
+            maddpg.actors_target[aid].load_state_dict(checkpoint["actor_target_state_dict"])
+            maddpg.actor_optimizers[aid].load_state_dict(checkpoint["actor_optimizer_state_dict"])
+
+            total_steps = max(total_steps, checkpoint.get("steps_done", 0))
+            start_episode = max(start_episode, checkpoint.get("episode", 0))
+
+            print(f"[Load] Actor {aid} restored from {ckpt}")
+            loaded_any = True
+        else:
+            print(f"[Load] No checkpoint found for actor {aid}")
+
+    # --- load central critic ---
+    ckpt = _get_latest_file(path, "central_critic_maddpg")
+    if ckpt:
+        checkpoint = torch.load(ckpt, map_location=maddpg.device)
+        maddpg.critic.load_state_dict(checkpoint["critic_state_dict"])
+        maddpg.critic_target.load_state_dict(checkpoint["critic_target_state_dict"])
+        maddpg.critic_optimizer.load_state_dict(checkpoint["critic_optimizer_state_dict"])
+
+        total_steps = max(total_steps, checkpoint.get("steps_done", 0))
+        start_episode = max(start_episode, checkpoint.get("episode", 0))
+
+        print(f"[Load] Central critic restored from {ckpt}")
+        loaded_any = True
+    else:
+        print("[Load] No checkpoint found for central critic")
+
+    return loaded_any, total_steps, start_episode
+
+
+
+def _get_latest_file(path, prefix):
+    """
+    Find the latest checkpoint for files starting with prefix.
+    Prioritizes *_final.pt, otherwise finds max episode number.
+    """
+    final_ckpt = os.path.join(path, f"{prefix}_final.pt")
+    if os.path.exists(final_ckpt):
+        return final_ckpt
+
+    files = glob.glob(os.path.join(path, f"{prefix}_ep*.pt"))
+    if not files:
+        return None
+
+    def extract_ep(filename):
+        import re
+        match = re.search(r"ep(\d+)\.pt", filename)
+        return int(match.group(1)) if match else -1
+
+    files = sorted(files, key=extract_ep, reverse=True)
+    return files[0]

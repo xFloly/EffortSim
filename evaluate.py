@@ -21,3 +21,9 @@ if __name__ == "__main__":
     main()
 
 # python evaluate.py --config path/to/your_config.yaml --agent maddpg --model_path path/to/your_model.pt
+
+
+#  python evaluate.py --config Social/configs/ddpg_shared.yaml --agent ddpg --model_path Social/checkpoint_ddpg_penalty
+#  python evaluate.py --config Social/configs/ddpg_individual.yaml --agent ddpg --model_path Social/checkpoint_ddpg_independent
+#  python evaluate.py --config Social/configs/ppo.yaml --agent ppo --model_path Social/checkpoints/ppo_trial_30_best_hypertuning/shared_checkpoint_ep4000.pt
+# python evaluate.py --config Social/configs/mmdpg.yaml --agent maddpg --model_path Social/checkpoint_maddpg
