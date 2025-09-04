@@ -22,12 +22,21 @@ def evaluate(cfg, agent_name, model_path, num_episodes=1, max_cycles=500):
     agent_name = agent_name.lower()
     multi_agent = False
     agent_ids  = env.possible_agents
+    obs_space = env.observation_space(agent_ids[0])
+    obs_dim = obs_space.shape[0]  # if Box space
+    action_space = env.action_space(agent_ids[0])
+    action_dim = action_space.shape[0]
 
     if agent_name == "maddpg":
-        agent = load_agent("maddpg", model_path, env, device = device, cfg = cfg)
+        from agents.maddpg import MADDPG
+        agent = MADDPG(agent_ids, obs_dim, action_dim, device=device, cfg=cfg)
         multi_agent = True
+        load_checkpoints(agent.agents, agent_ids, cfg)
     elif agent_name == "ddpg":
-        agent = load_agent("ddpg", model_path, env, device = device, cfg = cfg)
+        from agents.multi_ddpg import MultiDDPG
+        agent = MultiDDPG(agent_ids, obs_dim, action_dim, device=device, cfg=cfg)
+        multi_agent = True
+
     elif agent_name == "ppo":
         agent = load_agent("ppo", model_path, env, device = device, cfg = cfg)
     else:

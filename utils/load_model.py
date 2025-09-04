@@ -21,9 +21,18 @@ def load_checkpoints(agents, agent_ids, cfg):
             else:
                 print(f"walker {aid} skipped (no latest checkpoint found)")
 
+
     elif mode == "shared":
-        # TODO
-        pass
+        ckpt_name = cfg.checkpoint.shared_name
+        ckpt_path = os.path.join(path, ckpt_name)
+        if not os.path.exists(ckpt_path):
+            print(f"[warn] shared checkpoint not found: {ckpt_path}")
+
+        else:
+            for aid in agent_ids:
+                _load(agents[aid], ckpt_path, cfg)
+                print(f"walker {aid} initialized from shared checkpoint {ckpt_path}")
+                loaded_any = True
 
     elif mode == "individual":
         names = cfg.checkpoint.individual_names
