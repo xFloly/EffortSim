@@ -291,7 +291,6 @@ def eval_after_training(cfg, agent, num_episodes=10, max_cycles=500):
         ep_reward_sum = {aid: 0.0 for aid in agent_ids}
 
         for _ in range(max_cycles):
-            # PPO branch from your evaluate(): take the first element of act(...)
             actions = {
                 aid: agent.act(obs[aid])[0]
                 for aid in env.agents
@@ -309,7 +308,7 @@ def eval_after_training(cfg, agent, num_episodes=10, max_cycles=500):
                 break
 
         total_reward += sum(ep_reward_sum.values())
-        total_agents = len(agent_ids)  # constant
+        total_agents = len(agent_ids) 
         env.close()
 
     # average per walker per episode

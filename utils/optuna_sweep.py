@@ -1,15 +1,16 @@
-import os
+import sys, os
 import uuid
 import argparse
 from omegaconf import OmegaConf
 import optuna
 
-from utils.training_loop_ppo import run  # uses your existing training loop
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from policy.ppo import run  # uses existing training loop
 
 def build_cfg(trial, base_cfg):
     cfg = OmegaConf.create(OmegaConf.to_container(base_cfg, resolve=True))
 
-    # --- search space ---
+    # search space
     cfg.learning_rate   = trial.suggest_float("learning_rate", 1e-4, 3e-3, log=True)
     cfg.gamma           = trial.suggest_float("gamma", 0.97, 0.999)
     cfg.gae_lambda      = trial.suggest_float("gae_lambda", 0.90, 0.99)
@@ -21,10 +22,10 @@ def build_cfg(trial, base_cfg):
     cfg.learn_every     = trial.suggest_categorical("learn_every", [2, 5, 10])
     cfg.max_steps       = trial.suggest_categorical("max_steps", [300, 500])
 
-    # --- speed up trials  ---
+    # speed up trials  
     cfg.num_episodes = 1000
 
-    # --- logging ---
+    # logging
     cfg.project = f"{getattr(cfg, 'project', 'effortsim')}-optuna"
     wid = f"trial-{trial.number}-{uuid.uuid4().hex[:8]}"
     cfg.wandb_id = wid
