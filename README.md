@@ -1,17 +1,19 @@
 # EffortSim
+**EffortSim** is a coursework research project exploring cooperation, laziness, and incentive structures in multi‑agent reinforcement learning using the `multiwalker_v9` environment from PettingZoo.
+
 ## Authors
 Ignacy Kolton, Kacper Marzol, Filip Soszyński
-
-**EffortSim** is a research project exploring cooperation, laziness, and incentive structures in multi-agent reinforcement learning using the multiwalker_v9 environment from PettingZoo.
 
 ---
 
 ## Features
-- `train.py` — launch IPPO (parameter‑sharing) training on `multiwalker_v9`.
+- `train.py` — launch **IPPO** (parameter‑sharing) training on `multiwalker_v9`.
 - `generate_video.py` — run episodes with a trained policy and export `.mp4`.
-- `policy/ddpg_independent.py`, `policy/ddpg_shared.py`, `policy/maddpg.py` — optional IDDPG/MADDPG baselines.
-- `utils/metrics.py` — simple cooperation/effort metrics to aid shaping and logging.
-- `utils/load_model.py` / `utils/maddpg_io.py` — checkpointing utilities.
+- `policy/ddpg_independent.py`, `policy/ddpg_shared.py`, `policy/maddpg.py` — optional **IDDPG/MADDPG** baselines.
+- `utils/metrics.py` — simple cooperation/effort metrics for shaping and logging.
+- `utils/load_model.py` / `utils/maddpg_io.py` — checkpoint I/O utilities.
+
+> Note: after many experiments, PPO/IPPO gave the most stable results; unused/older code (e.g., DQN) is kept in `archive/`.
 
 ---
 
@@ -55,7 +57,7 @@ EffortSim/
 ---
 
 ## Installation
-CUDA-enabled:
+CUDA‑enabled:
 ```bash
 conda env create -f environment.yaml
 conda activate effortsim
@@ -74,12 +76,10 @@ python train.py --config configs/ppo.yaml
 # or
 python train.py --config configs/default.yaml
 ```
-
 To export a video from a checkpoint:
 ```bash
 python generate_video.py --config configs/ppo.yaml   --checkpoint checkpoints/shared_checkpoint_epXXXX.pt
 ```
-
 Optional baselines:
 ```bash
 # IDDPG (independent)
@@ -91,6 +91,47 @@ python -c "from policy.ddpg_shared import run; from omegaconf import OmegaConf; 
 # MADDPG (centralized critic)
 python -c "from policy.maddpg import run; from omegaconf import OmegaConf; run(OmegaConf.load('configs/ddpg.yaml'))"
 ```
+
+---
+
+## Terminology
+PPO and DDPG are single‑agent algorithms. In this repository we apply them in a decentralized multi‑agent way:
+- **IPPO**: Independent PPO; we use **parameter sharing** (one policy for all agents).
+- **IDDPG**: Independent DDPG (independent and parameter‑sharing variants).
+- **MADDPG**: centralized critic with per‑agent actors.
+
+We keep file names (`ppo.py`, `ddpg.py`) for continuity and refer to the multi‑agent formulations as IPPO/IDDPG in this document.
+
+---
+
+## Algorithms (what we actually implement)
+### IPPO (parameter sharing)
+- **Agent**: single `PPOAgent` shared by all walkers (`utils/training_loop_ppo.py`).
+- **Policy**: tanh‑squashed Gaussian; actions sampled via reparameterization (`rsample`).
+- **Loss**: clipped PPO surrogate with entropy bonus and value loss; gradient clip at 0.5.
+- **Advantages**: GAE(λ) with γ=0.99, λ=0.95 (see `configs/ppo.yaml`).
+- **Rollouts**: per‑agent buffers of `(obs, action, logp, value, reward, done)`.
+
+### IDDPG
+- **Independent**: one actor–critic per agent; replay buffer and target networks (`agents/ddpg.py`, `policy/ddpg_independent.py`).
+- **Parameter sharing**: a single actor shared by agents, separate critics or shared critic depending on the run (`policy/ddpg_shared.py`).
+
+### MADDPG
+- **Actors**: one actor per agent (same architecture as DDPG `Actor`).
+- **Centralized critic**: input is the concatenation of **all agents’ observations and actions**; implemented as `Critic(n_agents*obs_dim, n_agents*action_dim)`.
+
+---
+
+## Model Architecture
+### PPO (agents/ppo.py)
+- **Actor**: MLP `obs_dim → 256 → 128 → action_dim`; learnable `log_std` per action.
+- **Critic**: MLP `obs_dim → 256 → 128 → 1`.
+- **Action bounds**: tanh squashing; stable log‑prob estimation using the unsquashed `u`.
+
+### DDPG / MADDPG (agents/ddpg.py, agents/maddpg.py)
+- **Actor**: MLP `obs_dim → 128 → 128 → action_dim` with final `tanh`.
+- **Critic**: MLP `(obs_dim + action_dim) → 128 → 128 → 1`.
+- **MADDPG critic**: same critic but with concatenated inputs over all agents.
 
 ---
 
@@ -116,17 +157,17 @@ checkpoint:
   path: checkpoints/
   freq: 100
 ```
-`configs/default.yaml` varies logging/checkpoint defaults.
+`configs/default.yaml` varies logging/checkpoint defaults; `configs/ddpg.yaml` defines DDPG/MADDPG hyperparameters (buffer size, batch size, lr, etc.).
 
 ---
 
-## Terminology
-PPO and DDPG are single‑agent algorithms. In this repository we apply them in a decentralized multi‑agent way:
-- **IPPO**: Independent PPO; we use **parameter sharing** (one policy for all agents).
-- **IDDPG**: Independent DDPG (independent and parameter‑sharing variants).
-- **MADDPG**: centralized critic with per‑agent actors.
+## Reward shaping & metrics
+`utils/metrics.py` contains small helpers you can plug into the environment reward:
+- `compute_distance(prev_pos, curr_pos)` — per‑step 2D movement.
+- `update_agent_effort(efforts, agent_id, distance)` — accumulate per‑agent effort.
+- `compute_shaped_reward(prev_pos, curr_pos, stationary_penalty=..., moving_scale=...)` — example shaping with stationary penalty and (optional) forward bonus.
 
-We keep file names (`ppo.py`, `ddpg.py`) for continuity and refer to the multi‑agent formulations as IPPO/IDDPG in this document.
+These are logged via Weights & Biases when enabled.
 
 ---
 
@@ -145,7 +186,7 @@ Add plots from W&B or logs in a `results/` folder and link them here.
 ---
 
 ## Known Issues / Limitations
-- `evaluate.py` still references a legacy DQN path; for IPPO evaluation use `generate_video.py` or adapt `utils/eval_loop.py`.
+- `evaluate.py` currently references a legacy DQN path; for IPPO evaluation use `generate_video.py` or adapt `utils/eval_loop.py`.
 - Code targets a single machine and specific library versions from the provided conda envs.
 
 ---
