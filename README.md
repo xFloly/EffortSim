@@ -81,8 +81,6 @@ conda activate effortsim
 ## Running IPPO (Parameter Sharing)
 
 ```bash
-python train.py --config configs/ppo.yaml
-# or
 python train.py --config configs/default.yaml
 ```
 
