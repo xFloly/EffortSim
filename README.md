@@ -1,147 +1,162 @@
 # EffortSim
-## Ignacy Kolton, Kacper Marzol, Filip Soszyński
-EffortSim is a research project exploring cooperation, laziness, and incentive structures in multi-agent reinforcement learning using the `multiwalker_v9` environment from PettingZoo.
+## Authors
+Ignacy Kolton, Kacper Marzol, Filip Soszyński
+
+**EffortSim** is a research project exploring cooperation, laziness, and incentive structures in multi-agent reinforcement learning using the multiwalker_v9 environment from PettingZoo.
 
 ---
 
-### Features
-
-- `generate_video.py`: Visualizes agent behavior — runs episodes and saves them to `.mp4` files
-
----
-
-### Project Structure
-
-- `agents/` — Agent logic and models  
-  _(after many experiments, PPO gave the most stable results; not used agents like DDPG are stored in `archive/`)_
-
-- `env/` — Environment wrappers and tracking tools
-
-- `utils/` — Analytics, training loops, metrics, and model loading
-
-- `archive/` — Older or experimental files preserved for review and reference
+## Features
+- `train.py` — launch IPPO (parameter‑sharing) training on `multiwalker_v9`.
+- `generate_video.py` — run episodes with a trained policy and export `.mp4`.
+- `policy/ddpg_independent.py`, `policy/ddpg_shared.py`, `policy/maddpg.py` — optional IDDPG/MADDPG baselines.
+- `utils/metrics.py` — simple cooperation/effort metrics to aid shaping and logging.
+- `utils/load_model.py` / `utils/maddpg_io.py` — checkpointing utilities.
 
 ---
 
-### Running the Project
+## Project Structure
+```text
+EffortSim/
+├── agents
+│   ├── ddpg.py
+│   ├── maddpg.py
+│   └── ppo.py
+├── archive
+│   └── agents
+│       └── dqn_agent.py
+├── configs
+│   ├── ddpg.yaml
+│   ├── default.yaml
+│   └── ppo.yaml
+├── policy
+│   ├── ddpg_independent.py
+│   ├── ddpg_shared.py
+│   └── maddpg.py
+├── utils
+│   ├── common.py
+│   ├── eval_loop.py
+│   ├── load_model.py
+│   ├── maddpg_io.py
+│   ├── metrics.py
+│   ├── showcase_loop.py
+│   ├── showcase_maddpg.py
+│   └── training_loop_ppo.py
+├── environment.yaml
+├── environment_no_cuda.yaml
+├── evaluate.py
+├── generate_video.py
+├── LICENSE
+├── README.md
+├── showcase.py
+└── train.py
+```
 
+---
+
+## Installation
+CUDA-enabled:
 ```bash
 conda env create -f environment.yaml
 conda activate effortsim
-python train.py
+```
+CPU/macOS:
+```bash
+conda env create -f environment_no_cuda.yaml
+conda activate effortsim
 ```
 
-We provide a pretrained model and config file: [link here](https://ujchmura-my.sharepoint.com/:f:/g/personal/ignacy_kolton_student_uj_edu_pl/EjjTtcl_1bVPufUOSEaQJAkBIECwIbe4wR6ukuFQZsUVQw?e=5xxHYb)
+---
 
-in order to launch it put config file into `configs/` and weights into `checkpoints_ppo_penaty/`
+## Running IPPO (Parameter Sharing)
+```bash
+python train.py --config configs/ppo.yaml
+# or
+python train.py --config configs/default.yaml
+```
 
+To export a video from a checkpoint:
+```bash
+python generate_video.py --config configs/ppo.yaml   --checkpoint checkpoints/shared_checkpoint_epXXXX.pt
+```
 
-Main training functionality is contained within files:
-- train.py
-- training_loop_ppo.py
-- agents/ppo.y
-- utils/metrics (we include penalization to encourage agen movement)
+Optional baselines:
+```bash
+# IDDPG (independent)
+python -c "from policy.ddpg_independent import run; from omegaconf import OmegaConf; run(OmegaConf.load('configs/ddpg.yaml'))"
 
-[//]: # (### Notes )
+# DDPG with parameter sharing
+python -c "from policy.ddpg_shared import run; from omegaconf import OmegaConf; run(OmegaConf.load('configs/ddpg.yaml'))"
 
-[//]: # (we use centralized PPO where all agents share weights. this was necessary because independent agents failed to converge.)
+# MADDPG (centralized critic)
+python -c "from policy.maddpg import run; from omegaconf import OmegaConf; run(OmegaConf.load('configs/ddpg.yaml'))"
+```
 
-[//]: # ()
-[//]: # (at the moment model still converges to local minima and stops at some point we dont know why )
+---
 
+## Configuration (excerpt from `configs/ppo.yaml`)
+```yaml
+learning_rate: 3.0e-4
+gamma: 0.99
+gae_lambda: 0.95
+eps_clip: 0.2
+entropy_coef: 0.01
+value_loss_coef: 0.5
+ppo_epochs: 15
+mini_batch_size: 128
+learn_every: 5
 
-## Algorithm & Model Details
+num_episodes: 5000
+max_steps: 500
+seed: 42
 
-## PPO
-Agent setup: One shared policy network for all walkers; agents share weights to ensure stable learning. 
+checkpoint:
+  enabled: true
+  resume: true
+  path: checkpoints/
+  freq: 100
+```
+`configs/default.yaml` varies logging/checkpoint defaults.
 
-Network architecture: Fully connected MLP, 2 hidden layers of 128 units each, ReLU activations.
+---
 
-Hyperparameters:
-* Learning rate: 0.0003 
-* Clip ratio: 0.2 
-* Batch size: 128
+## Terminology
+PPO and DDPG are single‑agent algorithms. In this repository we apply them in a decentralized multi‑agent way:
+- **IPPO**: Independent PPO; we use **parameter sharing** (one policy for all agents).
+- **IDDPG**: Independent DDPG (independent and parameter‑sharing variants).
+- **MADDPG**: centralized critic with per‑agent actors.
 
-## DDPG 
-### Shared
-**Agent setup**: Single actor-critic network shared among all walkers.
-**Architecture**: Actor and critic both MLPs with 2 hidden layers of 128 units, ReLU.
+We keep file names (`ppo.py`, `ddpg.py`) for continuity and refer to the multi‑agent formulations as IPPO/IDDPG in this document.
 
-### Independent
-**Agent setup**: Each walker has its own actor-critic network.
-**Architecture**: Same as above, but independent for each agent.
+---
 
-### Multi-Agent
-**Agent setup**: Each walker has its own actor network but shares a common critic.
-**Architecture**: Actor: 2 hidden layers, 128 units, ReLU; Critic: 2 hidden layers, 128 units, ReLU.
-
-
-## Reward & Incentive Design
-The reward structure in EffortSim is designed to balance cooperation with individual effort, encouraging agents to move efficiently while maintaining collective success.
-
-### Forward Progress
-Agents receive positive reward proportional to their forward movement.
-Encourages walkers to move together rather than stop. 
-### Lazy-Agent Penalty
-Penalizes agents who contribute minimal movement or remain idle.
-
-# Results and experiments
-We compare two models with different approaches, we provide movies created after the training to compare the cooperation 
-## PPO
-
-<video width="300" controls>
-  <source src="readme/ppo_run.mp4" type="video/mp4">
-</video>
-
-## DDPG
-### Shared
-One universal model for all 3 walkers
-
-<video width="300" controls>
-  <source src="readme/ddpg_shared_run.mp4" type="video/mp4">
-</video>
-
-### Independent
-Each walker has its own network
-
-<video width="300" controls>
-  <source src="readme/ddpg_independet_run.mp4" type="video/mp4">
-</video>
-
-### Multi-agent 
-Each walker has its own agent, but they share the critic
-
-<video width="300" controls>
-  <source src="readme/ddpg_ma_run.mp4" type="video/mp4">
-</video>
-
-The results are summarized in the table 
+## Results (template)
+Fill this table after running your experiments. “Cooperation rate” can be computed using a simple metric from `utils/metrics.py` (e.g., success without dropping the object / joint progress).
 
 Algorithm | Average Reward | Cooperation Rate | Notes
---- |----------------| --- | ---
-DDPG_shared| *:(*           | *:(* | ?
-DDPG_independent | *:(*     | *:(* | Unstable
-DDPG_multiagent |*:(*     | *:(* | Failed to converge
-PPO | *:(*      | *:(* |  prone to local minima
+--- | ---: | ---: | ---
+IDDPG (independent) |  |  | 
+DDPG (parameter sharing) |  |  | 
+MADDPG |  |  | 
+IPPO (parameter sharing) |  |  | 
 
-We also provide plots showcasing the training process:
+Add plots from W&B or logs in a `results/` folder and link them here.
 
-![plots](readme/plot.png)
+---
 
+## Known Issues / Limitations
+- `evaluate.py` still references a legacy DQN path; for IPPO evaluation use `generate_video.py` or adapt `utils/eval_loop.py`.
+- Code targets a single machine and specific library versions from the provided conda envs.
 
+---
 
-### TODO
-- refactor the model loading mechanism in utils/load_model.py for shared model
+## TODO
+- Refactor model loading for shared checkpoints (`utils/load_model.py`).
+- Tune / redesign reward shaping to avoid local optima (`utils/metrics.py`).
+- Make evaluation compatible with IPPO (`utils/eval_loop.py`).
+- Add evaluation metrics for cooperation and per‑agent effort.
 
-- play with the reward system to avoid convergence to local optima
-(see utils/metrics.py)
+---
 
-- make evaluation compatible with ppo (utils/eval_loop.py)
-
-- add evaluation metrics to better track learning and cooperation
-(utils/metrics.py)
-
-- add per-agent effort estimation, measuring the work each agent puts into movement
-  - Lazy Agent + Lazy Reward System
-
-### This README is a work in progress and will evolve as the project develops.
+## License
+MIT License (see `LICENSE`). This repository is for coursework; reuse appropriately.
