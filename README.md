@@ -183,7 +183,7 @@ These are logged via Weights & Biases when enabled.
 
 ## Results (template)
 
-Fill this table after running your experiments. “Cooperation rate” can be computed using a simple metric from `utils/metrics.py` (e.g., success without dropping the object / joint progress).
+#### _Miejsce dla FILIPA żeby wstawił ładne wykresy_
 
 | Algorithm                | Average Reward | Cooperation Rate | Notes |
 | ------------------------ | -------------: | ---------------: | ----- |
