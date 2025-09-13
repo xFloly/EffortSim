@@ -16,7 +16,6 @@ Ignacy Kolton, Kacper Marzol, Filip Soszyński
 * `utils/metrics.py` — simple cooperation/effort metrics for shaping and logging.
 * `utils/load_model.py` / `utils/maddpg_io.py` — checkpoint I/O utilities.
 
-> Note: after many experiments, PPO/IPPO gave the most stable results; unused/older code (e.g., DQN) is kept in `archive/`.
 
 ---
 
@@ -28,9 +27,6 @@ EffortSim/
 │   ├── ddpg.py
 │   ├── maddpg.py
 │   └── ppo.py
-├── archive
-│   └── agents
-│       └── dqn_agent.py
 ├── configs
 │   ├── ddpg.yaml
 │   ├── default.yaml
