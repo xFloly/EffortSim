@@ -199,11 +199,11 @@ Fill this table after running your experiments. “Cooperation rate” can be co
 Add plots from W\&B or logs in a `results/` folder and link them here.
 
 ---
-
+<!-- 
 ## Known Issues / Limitations
 
 * `evaluate.py` currently references a legacy DQN path; for IPPO evaluation use `generate_video.py` or adapt `utils/eval_loop.py`.
-* Code targets a single machine and specific library versions from the provided conda envs.
+* Code targets a single machine and specific library versions from the provided conda envs. -->
 
 <!-- ---
 
