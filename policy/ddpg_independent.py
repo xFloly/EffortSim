@@ -127,8 +127,6 @@ def run(cfg):
                 update_agent_effort(agent_efforts, aid, dist)
                 prev_positions[aid] = curr
 
-
-                r_penalty = penalty(curr, prev)
                 r_penalty = penalty(curr, prev)
                 total_reward = reward + r_penalty
                 
@@ -147,7 +145,6 @@ def run(cfg):
             if active_agents > 0:
                 episode_loss_critic += step_loss_critic / active_agents
                 episode_loss_actor += step_loss_actor / active_agents
-
 
             # Break if all agents terminated 
             if not env.agents:

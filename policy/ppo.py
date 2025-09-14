@@ -45,38 +45,39 @@ Key Components:
 import os
 import random
 import numpy as np
+import time
 import torch
 import wandb
 from tqdm import trange
 from omegaconf import OmegaConf
 from pettingzoo.sisl import multiwalker_v9
-
+from utils.load_model import load_checkpoints
 from agents.ppo import PPOAgent
 from utils.metrics import compute_distance, update_agent_effort, log_metrics_to_wandb, penalty
-from utils.load_model import load_checkpoints
+# from utils.load_model import load_checkpoints
 from utils.common import set_seed
 
 
-def run(cfg):
+def run(cfg, LAST_EVAL=False):
     """
     Main training loop for the PPO algorithm using the Multiwalker-v9 environment.
     """
 
     # ------------------------ WandB Logging Init ----------------------------
     wandb.init(
-        project=cfg.project,
-        entity=cfg.entity,
-        config=OmegaConf.to_container(cfg, resolve=True),
-        id=cfg.get("wandb_id", None),
-        name=cfg.get("wandb_id", None),
-        resume="allow",
+      project=cfg.project,
+      entity=cfg.entity,
+      config=OmegaConf.to_container(cfg, resolve=True),
+      group=f"PPO_multiwalker_v9",
+      job_type="train",
+      tags=["ppo", "multiagent", "multiwalker_v9"],
+      id=cfg.get("wandb_id", None),
+      name=cfg.get("wandb_id", None),
+      resume="allow",
     )
     print(f"[wandb] Logging to project: {cfg.project} (entity: {cfg.entity})")
 
-    # ------------------------ Random Seed -----------------------------------
-    print(f"[seed] Random seed set to: {cfg.seed}")
-    # Uncomment if reproducibility is needed:
-    # set_seed(cfg.seed)
+
 
     # ------------------------ Environment Setup -----------------------------
     env = multiwalker_v9.parallel_env(
@@ -86,11 +87,13 @@ def run(cfg):
     )
     print(f"[env] Loaded: multiwalker_v9 with {len(env.possible_agents)} agents")
 
+    # ------------------------ Random Seed -----------------------------------
+    set_seed(cfg,env)
+    print(f"[seed] Random seed set to: {cfg.seed}")
+
     agent_ids = env.possible_agents
     obs_dim = env.observation_space(agent_ids[0]).shape[0]
     action_dim = env.action_space(agent_ids[0]).shape[0]
-    action_low = env.action_space(agent_ids[0]).low
-    action_high = env.action_space(agent_ids[0]).high
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[device] Using: {device}")
@@ -117,6 +120,9 @@ def run(cfg):
     # ------------------------ Training Loop ---------------------------------
     reward_history = []
     episodes_since_last_train = 0
+    total_agent_steps = 0
+    env_steps_total = 0
+    t0 = time.time()
 
     for episode in trange(start_episode, cfg.num_episodes, desc="Training", initial=start_episode, total=cfg.num_episodes):
         obs, _ = env.reset()
@@ -156,6 +162,10 @@ def run(cfg):
 
             # -------------------- Environment Step --------------------------
             next_obs, rewards, terminations, truncations, infos = env.step(actions)
+
+            num_acted = len(actions)  # number of agents that produced an action
+            total_agent_steps += num_acted
+            env_steps_total += 1
 
             dones = {
                 aid: terminations.get(aid, False) or truncations.get(aid, False)
@@ -260,5 +270,56 @@ def run(cfg):
         }, final_path)
         print("[Final] Checkpoint saved")
 
+    if LAST_EVAL:     
+      eval_episodes = getattr(cfg, "eval_episodes", 10)
+      eval_max_steps = getattr(cfg, "eval_max_steps", cfg.max_steps)
+      final_eval = eval_after_training(cfg, shared_agent, num_episodes=eval_episodes, max_cycles=eval_max_steps)
+
     env.close()
     wandb.finish()
+
+    return final_eval
+
+
+def eval_after_training(cfg, agent, num_episodes=15, max_cycles=1000):
+    """
+    Returns: mean reward per walker per episode (float)
+    Uses the same reward accounting as your evaluate() for PPO.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    total_reward = 0.0
+    total_agents = 0
+    # create a fresh env per episode (no rendering for speed)
+    for _ in range(cfg.eval_num_episodes):
+        env = multiwalker_v9.parallel_env(
+            terminate_reward=-100.0,
+            fall_reward=-10.0,
+            forward_reward=20.0,
+        )
+        obs, _ = env.reset()
+        agent_ids = env.possible_agents
+        ep_reward_sum = {aid: 0.0 for aid in agent_ids}
+
+        for _ in range(max_cycles):
+            actions = {
+                aid: agent.act(obs[aid])[0]
+                for aid in env.agents
+                if aid in obs
+            }
+            next_obs, rewards, terminations, truncations, infos = env.step(actions)
+
+            for aid in env.agents:
+                if aid in rewards:
+                    ep_reward_sum[aid] += rewards[aid]
+
+            obs = next_obs
+            done = (not env.agents) or (all(terminations.values()) or all(truncations.values()))
+            if done:
+                break
+
+        total_reward += sum(ep_reward_sum.values())
+        total_agents = len(agent_ids) 
+        env.close()
+
+    # average per walker per episode
+    return float(total_reward / (num_episodes * total_agents))

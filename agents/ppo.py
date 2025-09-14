@@ -247,9 +247,6 @@ class PPOAgent:
         advantages = returns - values[:-1]
         return returns, advantages
 
-    # -------------------------------------------------------------------------
-    # Clear Rollout Buffers
-    # -------------------------------------------------------------------------
     def reset_buffer(self):
         self.obs_buf.clear()
         self.act_buf.clear()

@@ -120,8 +120,13 @@ We keep file names (`ppo.py`, `ddpg.py`) for continuity and refer to the multi�
 ## Algorithms
 
 **IPPO (parameter sharing).** A single PPO policy and value function are shared across all walkers. Each agent supplies its own observation; actions are sampled from a tanh‑squashed Gaussian. The training loop (`utils/training_loop_ppo.py`) collects per‑agent rollouts and applies the clipped PPO objective with GAE. Default settings: `eps_clip=0.2`, `entropy_coef=0.01`, `value_loss_coef=0.5`, `ppo_epochs=15`, `mini_batch_size=128`, gradient clip `0.5` (see `configs/ppo.yaml`).
+![Video preview](readme/ppo.gif)
 
 **IDDPG.** Each agent has an actor μ(o) and critic Q(o,a) with replay and target networks (`agents/ddpg.py`). Two runners are provided: independent actors/critics (`policy/ddpg_independent.py`) and a parameter‑sharing actor variant (`policy/ddpg_shared.py`). Exploration uses Gaussian action noise; targets are computed with soft‑updated networks.
+
+
+
+
 
 **MADDPG.** Each agent keeps its own actor; training uses a centralized critic that takes the concatenated observations and actions of all agents (`agents/maddpg.py`). Joint replay is maintained; target actors provide bootstrap targets. Execution remains decentralized.
 
