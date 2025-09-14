@@ -2,6 +2,8 @@
 
 **CoopRL** is a research and learning project on **multi-agent reinforcement learning (MARL)**, built around the `multiwalker_v9` environment from [PettingZoo](https://www.pettingzoo.ml/).  
 
+![alt text](readme/ppo.gif)
+
 The main purpose of this repository is **educational**: it was our introduction to reinforcement learning, and we implemented all algorithms completely **from scratch** to learn the details of how they work.  
 
 We implemented and experimented with the following algorithms:
@@ -95,11 +97,11 @@ conda env create -f environment_no_cuda.yaml
 conda activate cooprl
 ```
 
-### Train
+### Train #TODO - default usage
 Choose an algorithm (`ippo`, `iddpg`, `maddpg`) and config file:
 
 ```bash
-python train.py --config *.yaml --algo ippo
+python train.py --config default.yaml --algo ippo
 ```
 
 ### Evaluate 
@@ -128,23 +130,47 @@ We implemented three multi-agent reinforcement learning (MARL) approaches:
 
 ### 1. Hyperparameter Sensitivity (IPPO)
 
-10 hyperparameter configurations × 8 random seeds, each trained for 4,000 episodes.  
-#TODO
+We evaluated **10 hyperparameter configurations across 8 random seeds**, each trained for 4,000 episodes.  
+The figures below summarize the learning dynamics and the effect of different hyperparameters.
+
+![Learning curves](readme/hyperparameter_tuning.png)  
+Most runs achieved negative rewards, with only a few configurations reaching strong positive scores. Stable training in `multiwalker_v9` proved challenging.
+
+---
+
+![Continuous parameters](readme/continous_params.png)  
+- **Learning rate**: too small means no learning; too large witch leads to unstable updates. Best runs used higher values ($\approx 2.4 \times 10^{-3}$).  
+- **Entropy coefficient**: very low means agents collapsed into poor, deterministic policies; moderate values ($\approx 0.02$) worked best.  
+- **$\gamma$**: extremely high values ($0.996–0.999$) with low entropy often collapsed. Values near $0.98–0.99$ were most effective.  
+
+---
+
+![Categorical parameters](readme/discreate_params.png)  
+- **High performers**: larger learning rates and moderate entropy.  
+- **Low performers**: extreme $\gamma$ values and very small learning rates.  
 
 ---
 
 ### 2. Best Parameters Long Training
-Best-performing IPPO configuration from the sensitivity study.  
-60,000 episodes × 8 seeds.  
-#TODO
+
+We re-trained the best-performing IPPO configuration (selected from the sensitivity study) for **60,000 episodes across 8 seeds**.  
+
+- The mean reward remained stable throughout training.  
+- The absence of large upward jumps in the min/max curves suggests that **further training would likely reveal more progress**, but we were limited by computational resources.  
+- Overall, the model showed consistent behavior across seeds, demonstrating convergence toward stable walking policies.  
+
+![Best training curve](readme/best_training.png)
 
 
----
+### 3. Additional Notes on DDPG / MADDPG
 
-### 3. Additional Notes on DDPG
+For completeness, we also ran exploratory trials with **DDPG** and **MADDPG**.  
+These runs were **not tuned** and we do not report quantitative scores, but they illustrate early learning dynamics:
 
-While PPO was the focus of sensitivity analysis and long training, we also ran exploratory trials with **DDPG** and **MADDPG**. They were not the best but here some videos #TODO
-
+- **DDPG**: agents showed uncoordinated movements and unstable progress.  
+<video controls src="readme/ddpg.mp4" title="DDPG run"></video>  
+- **MADDPG**: agents occasionally learned to coordinate, sometimes even throwing the stick instead of walking.  
+<video controls src="readme/mddpg.mp4" title="MADDPG run"></video>  
 
 ## Terminology(Disclainmer)
 
