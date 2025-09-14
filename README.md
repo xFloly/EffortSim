@@ -1,222 +1,164 @@
-# EffortSim
+# CoopRL
 
-**EffortSim** is a coursework research project exploring cooperation, laziness, and incentive structures in multi‑agent reinforcement learning using the `multiwalker_v9` environment from PettingZoo.
+**CoopRL** is a research and learning project on **multi-agent reinforcement learning (MARL)**, built around the `multiwalker_v9` environment from [PettingZoo](https://www.pettingzoo.ml/).  
 
-## Authors
+The main purpose of this repository is **educational**: it was our introduction to reinforcement learning, and we implemented all algorithms completely **from scratch** to learn the details of how they work.  
 
-Ignacy Kolton, Kacper Marzol, Filip Soszyński
+We implemented and experimented with the following algorithms:
 
----
+- **IPPO (Independent Proximal Policy Optimization, parameter sharing)**  
+- **IDDPG (Independent Deep Deterministic Policy Gradient)**  
+- **MADDPG (Multi-Agent DDPG with centralized critic)**  
+
+Although multiple algorithms were coded and tested, we ultimately focused on **IPPO** for hyperparameter tuning and long-horizon training. IPPO showed the fastest convergence and most stable walking behavior, while DDPG-based methods required much longer training and were too computationally expensive for extensive experiments.  
+
+This repository combines **algorithm implementations** with **experimental studies**, including Optuna-based hyperparameter sensitivity analysis and multi-seed training evaluations.
+
+## Motivation
+
+This project started as our **introduction to reinforcement learning**.  
+Instead of relying on existing implementations, we decided to **build everything from scratch** to gain a deep understanding of how core RL algorithms work in practice.
+
+We chose the **PettingZoo `multiwalker_v9` environment** because it highlights cooperation and coordination between multiple agents, which makes it both challenging and fun.  
+
+Along the way, we:  
+- Implemented **IPPO, IDDPG, and MADDPG** from first principles.  
+- Experimented with **hyperparameter sensitivity analysis** using Optuna.  
+- Compared performance across multiple random seeds to understand stability.  
 
 ## Features
 
-* `train.py` — launch **IPPO** (parameter‑sharing) training on `multiwalker_v9`.
-* `generate_video.py` — run episodes with a trained policy and export `.mp4`.
-* `policy/ddpg_independent.py`, `policy/ddpg_shared.py`, `policy/maddpg.py` — optional **IDDPG/MADDPG** baselines.
-* `utils/metrics.py` — simple cooperation/effort metrics for shaping and logging.
-* `utils/load_model.py` / `utils/maddpg_io.py` — checkpoint I/O utilities.
+- **Training**
+  - `train.py` — entry point to train an agent (`ippo`, `iddpg`, `iddpg_shared`, `maddpg`) with a chosen config
+  - `policy/` — training loops for all MARL algorithms
 
+- **Core Components**
+  - `agents/` — neural network implementations for all algorithms. 
 
----
+- **Evaluation & Visualization**
+  - `evaluate.py` — run a trained agent for multiple episodes and report average rewards, distances, and steps.
+  - `generate_video.py` — run a trained agent in `multiwalker_v9` and export an `.mp4` demo.
+
+- **Hyperparameter Tuning**
+  - `utils/optuna_sweep.py` — Optuna-based sensitivity analysis for IPPO, across multiple seeds; logs tidy CSVs for later plotting.  
+
+- **Utilities**
+  - `utils/metrics.py` — helpers for effort/reward shaping and logging.
+  - `utils/load_model.py` — checkpoint saving/loading utilities (supporting shared or per-agent checkpoints).  
+  - `utils/common.py` — seeding and reproducibility helpers.
+  - `utils/eval_loop.py` — reusable loops for evaluation and demos.
+
+### Logging & Checkpoints
+
+All algorithms support:
+- **Weights & Biases integration** for logging rewards, losses, and metrics.
+- **Checkpointing** (per-agent or shared), with options to resume training or evaluate from saved models.
+- Saving **final and intermediate models** for reproducibility and later analysis.
+
 
 ## Project Structure
 
 ```text
-EffortSim/
-├── agents
-│   ├── ddpg.py
-│   ├── maddpg.py
-│   └── ppo.py
-├── configs
-│   ├── ddpg.yaml
-│   ├── default.yaml
-│   └── ppo.yaml
-├── policy
-│   ├── ddpg_independent.py
-│   ├── ddpg_shared.py
-│   └── maddpg.py
-├── utils
+CoopRL/
+├── agents/
+│   └── ...
+├── policy/
+│   └── ...
+├── configs/
+│   └── ...
+├── utils/
 │   ├── common.py
 │   ├── eval_loop.py
 │   ├── load_model.py
-│   ├── maddpg_io.py
-│   ├── metrics.py
-│   ├── showcase_loop.py
-│   ├── showcase_maddpg.py
-│   └── training_loop_ppo.py
-├── environment.yaml
-├── environment_no_cuda.yaml
-├── evaluate.py
+│   ├── optuna_sweep.py
+│   └── ...
+├── notebooks/
+├── train.py
+├── evaluate.py 
 ├── generate_video.py
-├── LICENSE
-├── README.md
-├── showcase.py
-└── train.py
+└── ...
 ```
 
----
-
-## Installation
+## Setup & Usage
 
 CUDA‑enabled:
 
 ```bash
 conda env create -f environment.yaml
-conda activate effortsim
+conda activate cooprl
 ```
 
 CPU/macOS:
 
 ```bash
 conda env create -f environment_no_cuda.yaml
-conda activate effortsim
+conda activate cooprl
 ```
 
----
-
-## Running IPPO (Parameter Sharing)
+### Train
+Choose an algorithm (`ippo`, `iddpg`, `maddpg`) and config file:
 
 ```bash
-python train.py --config configs/default.yaml
+python train.py --config *.yaml --algo ippo
 ```
 
-To export a video from a checkpoint:
-
+### Evaluate 
 ```bash
-python generate_video.py --config configs/ppo.yaml \
-  --checkpoint checkpoints/shared_checkpoint_epXXXX.pt
+python evaluate.py --config configs/ippo.yaml --agent ippo --model_path checkpoints/ippo_final.pt
 ```
 
-Optional baselines:
-
+### Generate a demo video
 ```bash
-# IDDPG (independent)
-python -c "from policy.ddpg_independent import run; \
-from omegaconf import OmegaConf; run(OmegaConf.load('configs/ddpg.yaml'))"
-
-# DDPG with parameter sharing
-python -c "from policy.ddpg_shared import run; \
-from omegaconf import OmegaConf; run(OmegaConf.load('configs/ddpg.yaml'))"
-
-# MADDPG (centralized critic)
-python -c "from policy.maddpg import run; \
-from omegaconf import OmegaConf; run(OmegaConf.load('configs/ddpg.yaml'))"
+python generate_video.py --config configs/ippo.yaml  --agent ippo --model_path checkpoints/ippo_final.pt --output outputs/ippo_demo.mp4
 ```
+## Algorithms & Architecture
+
+We implemented three multi-agent reinforcement learning (MARL) approaches:
+
+- **IPPO (Independent PPO with parameter sharing)**  
+  Each walker acts independently based only on its own observation. A single PPO policy and value function are shared across all agents.
+
+- **IDDPG (Independent DDPG)**  
+  A DDPG actor–critic setup applied independently to each agent. We also provide a parameter-sharing variant with a shared actor.
+
+- **MADDPG (Multi-Agent DDPG)**  
+  Extends DDPG with a **centralized critic** that conditions on the joint observations and actions of all agents, while keeping decentralized actors.
+
+## Results & Analysis
+
+### 1. Hyperparameter Sensitivity (IPPO)
+
+10 hyperparameter configurations × 8 random seeds, each trained for 4,000 episodes.  
+#TODO
 
 ---
 
-## Terminology
+### 2. Best Parameters Long Training
+Best-performing IPPO configuration from the sensitivity study.  
+60,000 episodes × 8 seeds.  
+#TODO
 
-PPO and DDPG are single‑agent algorithms. In this repository we apply them in a decentralized multi‑agent way:
-
-* **IPPO**: Independent PPO; we use **parameter sharing** (one policy for all agents).
-* **IDDPG**: Independent DDPG (independent and parameter‑sharing variants).
-* **MADDPG**: centralized critic with per‑agent actors.
-
-We keep file names (`ppo.py`, `ddpg.py`) for continuity and refer to the multi‑agent formulations as IPPO/IDDPG in this document.
 
 ---
 
-## Algorithms
+### 3. Additional Notes on DDPG
 
-**IPPO (parameter sharing).** A single PPO policy and value function are shared across all walkers. Each agent supplies its own observation; actions are sampled from a tanh‑squashed Gaussian. The training loop (`utils/training_loop_ppo.py`) collects per‑agent rollouts and applies the clipped PPO objective with GAE. Default settings: `eps_clip=0.2`, `entropy_coef=0.01`, `value_loss_coef=0.5`, `ppo_epochs=15`, `mini_batch_size=128`, gradient clip `0.5` (see `configs/ppo.yaml`).
-![Video preview](readme/ppo.gif)
-
-**IDDPG.** Each agent has an actor μ(o) and critic Q(o,a) with replay and target networks (`agents/ddpg.py`). Two runners are provided: independent actors/critics (`policy/ddpg_independent.py`) and a parameter‑sharing actor variant (`policy/ddpg_shared.py`). Exploration uses Gaussian action noise; targets are computed with soft‑updated networks.
+While PPO was the focus of sensitivity analysis and long training, we also ran exploratory trials with **DDPG** and **MADDPG**. They were not the best but here some videos #TODO
 
 
+## Terminology(Disclainmer)
 
+PPO and DDPG are originally **single-agent algorithms**.  
+In this repository, we applied them in a **decentralized multi-agent** setting, where each agent acts independently based only on its own observations.  
 
+To avoid confusion, we renamed our implementations to match MARL terminology:
 
-**MADDPG.** Each agent keeps its own actor; training uses a centralized critic that takes the concatenated observations and actions of all agents (`agents/maddpg.py`). Joint replay is maintained; target actors provide bootstrap targets. Execution remains decentralized.
+- **IPPO**: Independent PPO with parameter sharing (one policy for all walkers).  
+- **IDDPG**: Independent DDPG (both independent and parameter-sharing variants).  
+- **MADDPG**: Centralized critic with decentralized actors.  
 
-## Model Architecture
-
-### PPO (agents/ppo.py)
-
-* **Actor**: MLP `obs_dim → 256 → 128 → action_dim`; learnable `log_std` per action.
-* **Critic**: MLP `obs_dim → 256 → 128 → 1`.
-* **Action bounds**: tanh squashing; stable log‑prob estimation using the unsquashed `u`.
-
-### DDPG / MADDPG (agents/ddpg.py, agents/maddpg.py)
-
-* **Actor**: MLP `obs_dim → 128 → 128 → action_dim` with final `tanh`.
-* **Critic**: MLP `(obs_dim + action_dim) → 128 → 128 → 1`.
-* **MADDPG critic**: same critic but with concatenated inputs over all agents.
-
----
-
-## Configuration (excerpt from `configs/ppo.yaml`)
-
-```yaml
-learning_rate: 3.0e-4
-gamma: 0.99
-gae_lambda: 0.95
-eps_clip: 0.2
-entropy_coef: 0.01
-value_loss_coef: 0.5
-ppo_epochs: 15
-mini_batch_size: 128
-learn_every: 5
-
-num_episodes: 5000
-max_steps: 500
-seed: 42
-
-checkpoint:
-  enabled: true
-  resume: true
-  path: checkpoints/
-  freq: 100
-```
-
-`configs/default.yaml` varies logging/checkpoint defaults; `configs/ddpg.yaml` defines DDPG/MADDPG hyperparameters (buffer size, batch size, lr, etc.).
-
----
-
-## Reward shaping & metrics
-
-`utils/metrics.py` contains small helpers you can plug into the environment reward:
-
-* `compute_distance(prev_pos, curr_pos)` — per‑step 2D movement.
-* `update_agent_effort(efforts, agent_id, distance)` — accumulate per‑agent effort.
-* `compute_shaped_reward(prev_pos, curr_pos, stationary_penalty=..., moving_scale=...)` — example shaping with stationary penalty and (optional) forward bonus.
-
-These are logged via Weights & Biases when enabled.
-
----
-
-## Results (template)
-
-#### _Miejsce dla FILIPA żeby wstawił ładne wykresy_
-
-| Algorithm                | Average Reward | Cooperation Rate | Notes |
-| ------------------------ | -------------: | ---------------: | ----- |
-| IDDPG (independent)      |                |                  |       |
-| DDPG (parameter sharing) |                |                  |       |
-| MADDPG                   |                |                  |       |
-| IPPO (parameter sharing) |                |                  |       |
-
-Add plots from W\&B or logs in a `results/` folder and link them here.
-
----
-<!-- 
-## Known Issues / Limitations
-
-* `evaluate.py` currently references a legacy DQN path; for IPPO evaluation use `generate_video.py` or adapt `utils/eval_loop.py`.
-* Code targets a single machine and specific library versions from the provided conda envs. -->
-
-<!-- ---
-
-## TODO
-
-* Refactor model loading for shared checkpoints (`utils/load_model.py`).
-* Tune / redesign reward shaping to avoid local optima (`utils/metrics.py`).
-* Make evaluation compatible with IPPO (`utils/eval_loop.py`).
-* Add evaluation metrics for cooperation and per‑agent effort.
-
----
+So while older versions of the repo used filenames like `ppo.py` and `ddpg.py`, we now use `ippo.py` and `iddpg.py` to reflect the correct algorithms.
 
 ## License
 
-MIT License (see `LICENSE`). This repository is for coursework; reuse appropriately. -->
+MIT License (see `LICENSE`). This repository is for coursework; reuse appropriately.
