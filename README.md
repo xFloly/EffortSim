@@ -1,6 +1,6 @@
 # CoopRL
 
-**CoopRL** is a research and learning project on **multi-agent reinforcement learning (MARL)**, built around the `multiwalker_v9` environment from [PettingZoo](https://www.pettingzoo.ml/).  
+**CoopRL** is a research and learning project on **multi-agent reinforcement learning (MARL)**, built around the `multiwalker_v9` environment from [PettingZoo](https://pettingzoo.farama.org/).  
 
 ![alt text](readme/ppo.gif)
 
