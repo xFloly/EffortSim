@@ -4,10 +4,6 @@ import numpy as np
 from pettingzoo.sisl import multiwalker_v9
 from utils.common import set_seed
 from utils.load_model import load_agent, load_checkpoints, load_maddpg_checkpoints
-from agents.maddpg import MADDPG
-from agents.ddpg import DDPGAgent
-from agents.ppo import PPOAgent
-
 
 
 def evaluate(cfg, agent_name, model_path, num_episodes=1, max_cycles=500):

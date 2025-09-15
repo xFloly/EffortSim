@@ -1,0 +1,36 @@
+project: effortsim-ppo-best
+entity: floly
+
+agent: ppo
+
+#best hyperparameters
+gamma: 0.9776556513063027
+learning_rate: 0.002402660514798173
+gae_lambda: 0.9603689956446895
+eps_clip: 0.24962360917369578
+entropy_coef: 0.021411518312410834
+value_loss_coef: 0.6058003410703234
+ppo_epochs: 8
+mini_batch_size: 256
+learn_every: 10
+max_steps: 500
+
+log_freq: 100
+wandb_id: "best_ppo"
+
+seed: 
+
+# Trening
+num_episodes: 60000   
+eval_episodes: 15       
+           
+
+# Checkpointy
+checkpoint:
+  enabled: true
+  path: checkpoints/ppo/best_params/
+  freq: 1500
+  mode: latest
+  resume: false
+
+

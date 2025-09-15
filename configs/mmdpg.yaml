@@ -1,11 +1,9 @@
 project: effortsim
 entity: floly
 
-agent: ddpg
-
 seed: 42
 
-lr: 0.0003
+lr: 0.001
 gamma: 0.99
 eps_start: 1.0
 eps_end: 0.01
@@ -13,18 +11,17 @@ eps_decay: 0.9995
 buffer_size: 50000
 batch_size: 64
 
-num_episodes: 10000
+num_episodes: 5000
 max_steps: 500
 target_update_freq: 10
 
 log_freq: 100
-wandb_id: "ddpg" 
+wandb_id: "maddpg" #we can change it to function that combines some hyperparameters but for now i dont know which
 
 checkpoint:
   enabled: true
   resume: true
-  path: "./checkpoints/ddpg"
-
+  path: "./checkpoints/maddpg"
   mode: latest
 
 checkpoint_freq: 500 

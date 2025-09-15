@@ -7,9 +7,9 @@ agent: ppo
 log_freq: 100
 
 # Trening
-num_episodes: 4000    
-eval_num_episodes: 15       
-max_steps: 500               
+num_episodes: 4000   
+eval_episodes: 15       
+max_steps: 700              
 
 # Checkpointy
 checkpoint:

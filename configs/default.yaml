@@ -18,16 +18,17 @@ num_episodes: 100000
 max_steps: 500
 
 log_freq: 100
-wandb_id: "ppo_penalyty" #we can change it to function that combines some hyperparameters but for now i dont know which
+wandb_id: "ppo" 
 
 checkpoint:
   enabled: true
   resume: true
-  path: "./checkpoints_ppo_penalyty"
+  path: "./checkpoints/ppo"
+  mode: "latest"
   # "latest" - all agents load their latest checkpoint, "shared" - all agents load the same shared checkpoint, "individual" - each agent loads a uniquely specified checkpoint
 
   # if shared   DONT USE THIS PLS
-  #   shared_name: walker_X_checkpoint_ep100.pt
+  #   shared_name: share_checkpoint_ep100.pt
   #
   # if individual
   # individual_names:
@@ -35,5 +36,4 @@ checkpoint:
   #   walker_1: walker_1_checkpoint_ep099.pt
   #   walker_2: walker_2_checkpoint_ep101.pt
   freq: 500
-  mode: "latest"
 

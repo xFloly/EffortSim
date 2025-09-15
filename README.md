@@ -127,6 +127,7 @@ We implemented three multi-agent reinforcement learning (MARL) approaches:
   Extends DDPG with a **centralized critic** that conditions on the joint observations and actions of all agents, while keeping decentralized actors.
 
 ## Results & Analysis
+for exact analysis look into `notebooks/`
 
 ### 1. Hyperparameter Sensitivity (IPPO)
 
