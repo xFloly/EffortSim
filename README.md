@@ -142,13 +142,13 @@ Most runs achieved negative rewards, with only a few configurations reaching str
 ![Continuous parameters](readme/continous_params.png)  
 - **Learning rate**: too small means no learning; too large witch leads to unstable updates. Best runs used higher values ($\approx 2.4 \times 10^{-3}$).  
 - **Entropy coefficient**: very low means agents collapsed into poor, deterministic policies; moderate values ($\approx 0.02$) worked best.  
-- **$\gamma$**: extremely high values ($0.996–0.999$) with low entropy often collapsed. Values near $0.98–0.99$ were most effective.  
-
+- **gamma_coef**  $\gamma$: extremely high values ($0.996–0.999$) with low entropy often collapsed. Values near $0.98–0.99$ were most effective.  
+- **High performers**: larger learning rates and moderate entropy.  
+- **Low performers**: extreme $\gamma$ values and very small learning rates.  
 ---
 
 ![Categorical parameters](readme/discreate_params.png)  
-- **High performers**: larger learning rates and moderate entropy.  
-- **Low performers**: extreme $\gamma$ values and very small learning rates.  
+
 
 ---
 
@@ -156,12 +156,14 @@ Most runs achieved negative rewards, with only a few configurations reaching str
 
 We re-trained the best-performing IPPO configuration (selected from the sensitivity study) for **60,000 episodes across 8 seeds**.  
 
-- The mean reward remained stable throughout training.  
-- The absence of large upward jumps in the min/max curves suggests that **further training would likely reveal more progress**, but we were limited by computational resources.  
-- Overall, the model showed consistent behavior across seeds, demonstrating convergence toward stable walking policies.  
+- The learning curves show that the **mean reward stayed in a stable range** without large spikes.  
+- The min/max values also stabilized, indicating that the policy had stopped exploring aggressively and settled into a walking strategy.  
+- Full convergence was **not achieved** — we expect that with longer training and more resources, further improvements could emerge.  
+- Despite this, the agents in some runs already demonstrated coordinated walking behavior, as shown in the main PPO demo video below:  
 
-![Best training curve](readme/best_training.png)
+![PPO demo](readme/ppo.gif)
 
+Overall, the results are promising: the model reached a consistent walking regime, but we were unable to extend training long enough to fully exploit its potential due to computational limits.
 
 ### 3. Additional Notes on DDPG / MADDPG
 
@@ -169,9 +171,9 @@ For completeness, we also ran exploratory trials with **DDPG** and **MADDPG**.
 These runs were **not tuned** and we do not report quantitative scores, but they illustrate early learning dynamics:
 
 - **DDPG**: agents showed uncoordinated movements and unstable progress.  
-<video controls src="readme/ddpg.mp4" title="DDPG run"></video>  
+![alt text](readme/ddpg.gif) 
 - **MADDPG**: agents occasionally learned to coordinate, sometimes even throwing the stick instead of walking.  
-<video controls src="readme/mddpg.mp4" title="MADDPG run"></video>  
+![alt text](readme/mddpg.gif)
 
 ## Terminology(Disclainmer)
 
