@@ -271,14 +271,16 @@ def run(cfg, LAST_EVAL=False):
         print("[Final] Checkpoint saved")
 
     if LAST_EVAL:     
-      eval_episodes = getattr(cfg, "eval_episodes", 10)
-      eval_max_steps = getattr(cfg, "eval_max_steps", cfg.max_steps)
-      final_eval = eval_after_training(cfg, shared_agent, num_episodes=eval_episodes, max_cycles=eval_max_steps)
+        eval_episodes = getattr(cfg, "eval_episodes", 10)
+        eval_max_steps = getattr(cfg, "eval_max_steps", cfg.max_steps)
+        final_eval = eval_after_training(cfg, shared_agent, num_episodes=eval_episodes, max_cycles=eval_max_steps)
+    else:
+        final_eval = None
 
     env.close()
     wandb.finish()
 
-    return final_eval
+    return final_eval  
 
 
 def eval_after_training(cfg, agent, num_episodes=15, max_cycles=1000):
@@ -290,7 +292,7 @@ def eval_after_training(cfg, agent, num_episodes=15, max_cycles=1000):
     total_reward = 0.0
     total_agents = 0
     # create a fresh env per episode (no rendering for speed)
-    for _ in range(cfg.eval_num_episodes):
+    for _ in range(num_episodes):
         env = multiwalker_v9.parallel_env(
             terminate_reward=-100.0,
             fall_reward=-10.0,

@@ -1,17 +1,4 @@
 #!/usr/bin/env python3
-"""
-Optuna sensitivity study for PPO on PettingZoo multiwalker_v9.
-
-Design goals (per guidance):
-- We are NOT searching for a single "best" hyperparameter set.
-- We SAMPLE the hyperparameter space mindfully to UNDERSTAND sensitivity.
-- Objective = mean score across seeds (not best-per-seed).
-- Limited trials (compute-aware), with reproducible multi-seed evaluation.
-- Save a tidy CSV of (trial, seed, params, score) for 1D curves + violin plots.
-
-Run:
-  python optuna_sweep.py --base configs/ppo.yaml --study ppo_sensitivity --trials 40 --seeds-per-trial 10
-"""
 
 import sys, os, uuid, argparse, json, csv
 from datetime import datetime
@@ -21,10 +8,8 @@ import optuna
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from policy.ppo import run  # uses your existing training loop with LAST_EVAL=True
 
-# ======== knobs (defaulted; can be overridden by CLI) ========
 OPTUNA_STARTUP = 10
 OPTUNA_PRUNE_START = 8
-# =============================================================
 
 
 def build_cfg(trial: optuna.trial.Trial, base_cfg: DictConfig, trial_group: str) -> DictConfig:
@@ -46,7 +31,7 @@ def build_cfg(trial: optuna.trial.Trial, base_cfg: DictConfig, trial_group: str)
     # ---- fixed, fair budget inside a trial ----
     # (we keep num_episodes & eval params constant across seeds for comparability)
     cfg.num_episodes  = base_cfg.num_episodes  
-    cfg.eval_num_episodes = base_cfg.eval_num_episodes 
+    cfg.eval_episodes = base_cfg.eval_episodes 
     cfg.eval_max_steps = 1000
 
     # ---- logging (project suffix; group by trial) ----
@@ -125,7 +110,7 @@ def objective(trial: optuna.trial.Trial, base_cfg: DictConfig, results_writer) -
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base", type=str, default="configs/ppo.yaml")
+    parser.add_argument("--base", type=str, default="configs/ppo_optuna_sweep.yaml")
     parser.add_argument("--study", type=str, default="ppo_sensitivity")
     parser.add_argument("--trials", type=int, default=10)
     parser.add_argument("--n-jobs", type=int, default=1)
