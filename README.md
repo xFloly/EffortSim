@@ -175,7 +175,7 @@ These runs were **not tuned** and we do not report quantitative scores, but they
 - **MADDPG**: agents occasionally learned to coordinate, sometimes even throwing the stick instead of walking.  
 ![alt text](readme/mddpg.gif)
 
-## Terminology(Disclainmer)
+## Terminology
 
 PPO and DDPG are originally **single-agent algorithms**.  
 In this repository, we applied them in a **decentralized multi-agent** setting, where each agent acts independently based only on its own observations.  
@@ -186,7 +186,7 @@ To avoid confusion, we renamed our implementations to match MARL terminology:
 - **IDDPG**: Independent DDPG (both independent and parameter-sharing variants).  
 - **MADDPG**: Centralized critic with decentralized actors.  
 
-So while older versions of the repo used filenames like `ppo.py` and `ddpg.py`, we now use `ippo.py` and `iddpg.py` to reflect the correct algorithms.
+So while older versions of the repo used filenames like `ppo.py` and `ddpg.py`, they are implementations of their independent versions.
 
 ## License
 
