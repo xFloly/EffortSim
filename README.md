@@ -59,7 +59,6 @@ All algorithms support:
 
 
 ## Project Structure
-
 ```text
 CoopRL/
 ├── agents/
@@ -82,6 +81,7 @@ CoopRL/
 ```
 
 ## Setup & Usage
+After cloning repo:
 
 CUDA‑enabled:
 
@@ -126,6 +126,13 @@ We implemented three multi-agent reinforcement learning (MARL) approaches:
 - **MADDPG (Multi-Agent DDPG)**  
   Extends DDPG with a **centralized critic** that conditions on the joint observations and actions of all agents, while keeping decentralized actors.
 
+## Experimental Setup
+All experiments were conducted on a machine equipped
+with an NVIDIA GeForce RTX 4060 Ti GPU, 8 GB of
+RAM, and running Python 3.10. The models were implemented using the PyTorch framework (version 2.4.1) with
+CUDA 11.8.0 enabled computations.
+
+
 ## Results & Analysis
 for exact analysis look into `notebooks/`
 
@@ -134,20 +141,22 @@ for exact analysis look into `notebooks/`
 We evaluated **10 hyperparameter configurations across 8 random seeds**, each trained for 4,000 episodes.  
 The figures below summarize the learning dynamics and the effect of different hyperparameters.
 
-![Learning curves](readme/hyperparameter_tuning.png)  
 Most runs achieved negative rewards, with only a few configurations reaching strong positive scores. Stable training in `multiwalker_v9` proved challenging.
 
+
+![Learning curves](readme/hyperparameter_tuning.png)  
 ---
 
-![Continuous parameters](readme/continous_params.png)  
 - **Learning rate**: too small means no learning; too large witch leads to unstable updates. Best runs used higher values ($\approx 2.4 \times 10^{-3}$).  
 - **Entropy coefficient**: very low means agents collapsed into poor, deterministic policies; moderate values ($\approx 0.02$) worked best.  
 - **gamma_coef**  $\gamma$: extremely high values ($0.996–0.999$) with low entropy often collapsed. Values near $0.98–0.99$ were most effective.  
 - **High performers**: larger learning rates and moderate entropy.  
 - **Low performers**: extreme $\gamma$ values and very small learning rates.  
+![Continuous parameters](readme/continous_params_best.png)  
+
 ---
 
-![Categorical parameters](readme/discreate_params.png)  
+![Categorical parameters](readme/discreate_params_best.png)  
 
 
 ---
@@ -159,7 +168,9 @@ We re-trained the best-performing IPPO configuration (selected from the sensitiv
 - The learning curves show that the **mean reward stayed in a stable range** without large spikes.  
 - The min/max values also stabilized, indicating that the policy had stopped exploring aggressively and settled into a walking strategy.  
 - Full convergence was **not achieved** — we expect that with longer training and more resources, further improvements could emerge.  
-- Despite this, the agents in some runs already demonstrated coordinated walking behavior, as shown in the main PPO demo video below:  
+![alt text](readme/best_training.png)
+
+Despite this, the agents in some runs already demonstrated coordinated walking behavior, as shown in the main PPO demo video below:  
 
 ![PPO demo](readme/ppo.gif)
 
@@ -171,9 +182,10 @@ For completeness, we also ran exploratory trials with **DDPG** and **MADDPG**.
 These runs were **not tuned** and we do not report quantitative scores, but they illustrate early learning dynamics:
 
 - **DDPG**: agents showed uncoordinated movements and unstable progress.  
-![alt text](readme/ddpg.gif) 
+<img src="readme/ddpg.gif" alt="PPO demo" width="300"/>
+
 - **MADDPG**: agents occasionally learned to coordinate, sometimes even throwing the stick instead of walking.  
-![alt text](readme/mddpg.gif)
+<img src="readme/mddpg.gif" alt="MDDPG demo" width="300"/>  
 
 ## Terminology
 
